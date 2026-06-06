@@ -1,0 +1,12 @@
+{
+  "tariffs": [
+    {
+      "id": "tariff-demo-01",
+      "name": "Demo Tarif 2026",
+      "local_price_ct_per_kwh": 8.0,
+      "grid_price_ct_per_kwh": 28.0,
+      "service_fee_ct_per_kwh": 2.0,
+      "valid_from": "2026-01-01"
+    }
+  ]
+}

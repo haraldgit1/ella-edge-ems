@@ -1,0 +1,135 @@
+services:
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: ella-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: builder
+    container_name: ella-frontend-build
+    volumes:
+      - ./frontend/dist:/app/dist
+    profiles:
+      - build
+
+  backend-api:
+    build: ./backend-api
+    container_name: ella-backend-api
+    environment:
+      - ELLA_DB_PATH=${ELLA_DB_PATH:-/data/ella-edge.db}
+      - ELLA_CONFIG_DIR=${ELLA_CONFIG_DIR:-/config}
+      - API_PORT=${API_PORT:-3000}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - SIMULATION_MODE=${SIMULATION_MODE:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+      - ./database:/database:ro
+      - ./logs/backend-api:/logs
+      - ./reports:/reports
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  meter-collector:
+    build: ./services/meter-collector
+    container_name: ella-meter-collector
+    environment:
+      - ELLA_DB_PATH=${ELLA_DB_PATH:-/data/ella-edge.db}
+      - ELLA_CONFIG_DIR=${ELLA_CONFIG_DIR:-/config}
+      - SIMULATION_MODE=${SIMULATION_MODE:-true}
+      - SIMULATION_SCENARIO=${SIMULATION_SCENARIO:-summer_high_pv}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+      - ./logs/meter-collector:/logs
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  inverter-controller:
+    build: ./services/inverter-controller
+    container_name: ella-inverter-controller
+    environment:
+      - ELLA_DB_PATH=${ELLA_DB_PATH:-/data/ella-edge.db}
+      - ELLA_CONFIG_DIR=${ELLA_CONFIG_DIR:-/config}
+      - SIMULATION_MODE=${SIMULATION_MODE:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+      - ./logs/inverter-controller:/logs
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  settlement-worker:
+    build: ./services/settlement-worker
+    container_name: ella-settlement-worker
+    environment:
+      - ELLA_DB_PATH=${ELLA_DB_PATH:-/data/ella-edge.db}
+      - ELLA_CONFIG_DIR=${ELLA_CONFIG_DIR:-/config}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+      - ./logs/settlement-worker:/logs
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  reporting-worker:
+    build: ./services/reporting-worker
+    container_name: ella-reporting-worker
+    environment:
+      - ELLA_DB_PATH=${ELLA_DB_PATH:-/data/ella-edge.db}
+      - ELLA_CONFIG_DIR=${ELLA_CONFIG_DIR:-/config}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+      - ./reports:/reports
+      - ./logs/reporting-worker:/logs
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: ella-rabbitmq
+    profiles:
+      - events
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+volumes:
+  rabbitmq-data:

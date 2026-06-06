@@ -1,0 +1,12 @@
+{
+  "device_id": "dev-inverter-01",
+  "protocol": "SIMULATION",
+  "max_power_w": 10000,
+  "min_soc_percent": 15,
+  "hysteresis_w": 50,
+  "modbus": {
+    "host": "192.168.1.100",
+    "port": 502,
+    "unit_id": 1
+  }
+}
