@@ -6,6 +6,7 @@ import Participants from './pages/Participants'
 import Meters from './pages/Meters'
 import Devices from './pages/Devices'
 import Alarms from './pages/Alarms'
+import Settlement from './pages/Settlement'
 import OpsRules from './pages/OpsRules'
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="operator/devices"      element={<Devices />} />
         <Route path="operator/meters"       element={<Meters />} />
         <Route path="operator/alarms"       element={<Alarms />} />
+        <Route path="operator/settlement"   element={<Settlement />} />
         <Route path="resident/dashboard"    element={<ResidentDashboard />} />
         <Route path="ops/rules"             element={<OpsRules />} />
       </Route>

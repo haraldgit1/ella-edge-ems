@@ -29,5 +29,8 @@ export const api = {
   closeAlarm:          (id: number) => post<any>(`/alarms/${id}/close`),
   controlDecisions:    (limit = 20) => get<any[]>(`/control-decisions?limit=${limit}`),
   latestDecision:      () => get<any>('/control-decisions/latest'),
-  settlementIntervals: () => get<any[]>('/settlement/intervals'),
+  settlementIntervals:    (month: string) => get<any[]>(`/settlement/intervals?month=${month}`),
+  settlementSummary:      (month: string) => get<any>(`/settlement/summary?month=${month}`),
+  settlementPlausibility: (month: string) => get<any>(`/settlement/plausibility?month=${month}`),
+  settlementApprove:      (month: string) => post<any>('/settlement/approve', { month }),
 }

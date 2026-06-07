@@ -5,8 +5,9 @@ const nav = [
   { to: '/operator/participants', label: 'Teilnehmer', group: 'Betreiber' },
   { to: '/operator/devices',      label: 'Geräte',    group: 'Betreiber' },
   { to: '/operator/meters',       label: 'Zähler',    group: 'Betreiber' },
-  { to: '/operator/alarms',       label: 'Alarme',    group: 'Betreiber' },
-  { to: '/resident/dashboard',    label: 'Strommix',  group: 'Bewohner'  },
+  { to: '/operator/alarms',       label: 'Alarme',      group: 'Betreiber' },
+  { to: '/operator/settlement',   label: 'Settlement', group: 'Betreiber' },
+  { to: '/resident/dashboard',    label: 'Strommix',   group: 'Bewohner'  },
   { to: '/ops/rules',             label: 'Regelung',  group: 'Ops'       },
 ]
 
