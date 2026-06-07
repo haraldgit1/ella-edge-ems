@@ -6,12 +6,28 @@ async function get<T>(path: string): Promise<T> {
   return res.json()
 }
 
+async function post<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${path}`)
+  return res.json()
+}
+
 export const api = {
-  health: () => get<{ status: string; version: string; simulation_mode: boolean }>('/health'),
-  dashboard: () => get<any>('/dashboard/operator'),
-  participants: () => get<any[]>('/participants'),
-  meters: () => get<any[]>('/meters/status'),
-  alarms: () => get<any[]>('/alarms/active'),
-  controlDecisions: (limit = 20) => get<any[]>(`/control-decisions?limit=${limit}`),
-  latestDecision: () => get<any>('/control-decisions/latest'),
+  health:              () => get<any>('/health'),
+  dashboardOperator:   () => get<any>('/dashboard/operator'),
+  dashboardResident:   (id: string) => get<any>(`/dashboard/resident/${id}`),
+  dashboardDevices:    () => get<any>('/dashboard/devices'),
+  participants:        () => get<any[]>('/participants'),
+  meters:              () => get<any[]>('/meters/status'),
+  alarms:              () => get<any[]>('/alarms'),
+  activeAlarms:        () => get<any[]>('/alarms/active'),
+  ackAlarm:            (id: number) => post<any>(`/alarms/${id}/ack`),
+  closeAlarm:          (id: number) => post<any>(`/alarms/${id}/close`),
+  controlDecisions:    (limit = 20) => get<any[]>(`/control-decisions?limit=${limit}`),
+  latestDecision:      () => get<any>('/control-decisions/latest'),
+  settlementIntervals: () => get<any[]>('/settlement/intervals'),
 }
