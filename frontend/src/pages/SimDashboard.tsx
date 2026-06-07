@@ -1,0 +1,565 @@
+import { useState, useEffect, useCallback } from 'react'
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const C_GREEN = '#22c55e'
+const C_BLUE  = '#3b82f6'
+const C_AMBER = '#f59e0b'
+const C_GRAY  = '#6b7280'
+const C_DIM   = '#374151'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Meter {
+  id: string
+  name: string
+  load_kw: number
+  is_bplus: boolean
+}
+
+interface Flow {
+  pv_w: number
+  pv_to_bplus_w: number
+  pv_to_grid_w: number
+  battery_charge_w: number
+  battery_discharge_w: number
+  grid_to_bplus_w: number
+  grid_to_bminus_w: number
+  grid_import_w: number
+  grid_export_w: number
+  bplus_demand_w: number
+  bminus_demand_w: number
+  local_supply_w: number
+  local_coverage_pct: number
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmtW(w: number): string {
+  return w >= 1000 ? `${(w / 1000).toFixed(2)} kW` : `${Math.round(w)} W`
+}
+
+function computeFlow(pvKw: number, socPct: number, meters: Meter[]): Flow {
+  const pvW           = pvKw * 1000
+  const bplus         = meters.filter(m =>  m.is_bplus)
+  const bminus        = meters.filter(m => !m.is_bplus)
+  const bplusDemandW  = bplus.reduce((s, m)  => s + m.load_kw * 1000, 0)
+  const bminusDemandW = bminus.reduce((s, m) => s + m.load_kw * 1000, 0)
+  const dischargeAvailW = socPct > 20 ? 5000 : 0
+
+  let pvToBplusW = 0, pvToGridW = 0, batChargeW = 0, batDischargeW = 0, gridToBplusW = 0
+
+  if (pvW >= bplusDemandW) {
+    pvToBplusW    = bplusDemandW
+    const surplus = pvW - bplusDemandW
+    batChargeW    = Math.min(surplus, 5000)
+    pvToGridW     = Math.max(0, surplus - batChargeW)
+  } else {
+    pvToBplusW      = pvW
+    const deficit   = bplusDemandW - pvW
+    batDischargeW   = Math.min(deficit, dischargeAvailW)
+    gridToBplusW    = deficit - batDischargeW
+  }
+
+  const localSupplyW  = pvToBplusW + batDischargeW
+  const localCovPct   = bplusDemandW > 0 ? (localSupplyW / bplusDemandW) * 100 : 100
+  const gridImportW   = gridToBplusW + bminusDemandW
+
+  return {
+    pv_w:                pvW,
+    pv_to_bplus_w:       pvToBplusW,
+    pv_to_grid_w:        pvToGridW,
+    battery_charge_w:    batChargeW,
+    battery_discharge_w: batDischargeW,
+    grid_to_bplus_w:     gridToBplusW,
+    grid_to_bminus_w:    bminusDemandW,
+    grid_import_w:       gridImportW,
+    grid_export_w:       pvToGridW,
+    bplus_demand_w:      bplusDemandW,
+    bminus_demand_w:     bminusDemandW,
+    local_supply_w:      localSupplyW,
+    local_coverage_pct:  localCovPct,
+  }
+}
+
+// ── SVG primitives ────────────────────────────────────────────────────────────
+
+function tw(
+  x: number, y: number, txt: string,
+  size = 11, color = '#d1d5db',
+  anchor: 'start' | 'middle' | 'end' = 'middle',
+) {
+  return (
+    <text x={x} y={y} fontSize={size} fill={color} textAnchor={anchor} dominantBaseline="middle">
+      {txt}
+    </text>
+  )
+}
+
+function DeviceBox({
+  x, y, w, h, color, children,
+}: { x: number; y: number; w: number; h: number; color: string; children: React.ReactNode }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} rx={8} fill="#111827" stroke={color} strokeWidth={1.5} />
+      {children}
+    </g>
+  )
+}
+
+function FlowArrow({
+  x1, y1, x2, y2, power, color, reverse = false,
+}: { x1: number; y1: number; x2: number; y2: number; power: number; color: string; reverse?: boolean }) {
+  const cx = (x1 + x2) / 2
+  const d  = `M ${x1} ${y1} C ${cx} ${y1} ${cx} ${y2} ${x2} ${y2}`
+  const sw = Math.max(1.5, Math.min(7, power / 700))
+  const active = power > 0
+  const speed  = active ? Math.max(0.25, 3000 / (power + 100)) : 1
+
+  return (
+    <g>
+      <path d={d} stroke={C_DIM} strokeWidth={sw + 3} fill="none" strokeLinecap="round" />
+      <path
+        d={d} stroke={color} strokeWidth={sw} fill="none"
+        strokeLinecap="round" strokeDasharray="9 5"
+        strokeDashoffset={reverse ? '0' : '9'}
+        opacity={active ? 1 : 0.15}
+        style={active ? { animation: `flowAnim ${speed.toFixed(2)}s linear infinite${reverse ? ' reverse' : ''}` } : {}}
+      />
+    </g>
+  )
+}
+
+// ── Energy Flow Diagram ───────────────────────────────────────────────────────
+
+function FlowDiagram({ flow: f, socPct }: { flow: Flow; socPct: number }) {
+  const batMode = f.battery_charge_w > 0 ? 'charge'
+    : f.battery_discharge_w > 0 ? 'discharge' : 'idle'
+  const batPower = batMode === 'charge' ? f.battery_charge_w : f.battery_discharge_w
+
+  return (
+    <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
+      <svg viewBox="0 0 580 295" className="w-full" style={{ maxHeight: 340 }}>
+        <style>{`@keyframes flowAnim{from{stroke-dashoffset:13}to{stroke-dashoffset:0}}`}</style>
+
+        {/* ── Source boxes ── */}
+        <DeviceBox x={10} y={10} w={115} h={60} color={C_GREEN}>
+          {tw(67, 28, '☀  Photovoltaik', 10, C_GREEN)}
+          {tw(67, 48, fmtW(f.pv_w), 13, '#f9fafb')}
+        </DeviceBox>
+
+        <DeviceBox x={10} y={112} w={115} h={62} color={C_BLUE}>
+          {tw(67, 129, '⚡ Batterie', 10, C_BLUE)}
+          {tw(67, 144, `SOC  ${socPct.toFixed(0)} %`, 11, '#f9fafb')}
+          {tw(67, 160,
+            batMode === 'idle' ? 'Standby'
+              : `${batMode === 'charge' ? '↑ Laden' : '↓ Entladen'}  ${fmtW(batPower)}`,
+            9, batMode === 'idle' ? C_GRAY : C_BLUE)}
+        </DeviceBox>
+
+        <DeviceBox x={10} y={212} w={115} h={62} color={C_AMBER}>
+          {tw(67, 229, '⚡ Stromnetz', 10, C_AMBER)}
+          {tw(67, 245,
+            f.grid_import_w > 0 ? `↓ ${fmtW(f.grid_import_w)}`
+              : f.grid_export_w > 0 ? `↑ ${fmtW(f.grid_export_w)}` : 'Standby',
+            12, '#f9fafb')}
+          {tw(67, 261,
+            f.grid_import_w > 0 ? 'Import' : f.grid_export_w > 0 ? 'Export' : '',
+            9, C_AMBER)}
+        </DeviceBox>
+
+        {/* ── EMS box ── */}
+        <DeviceBox x={192} y={72} w={180} h={148} color={C_GREEN}>
+          {tw(282, 96,  'ELLA EMS', 12, C_GREEN)}
+          {tw(282, 113, '+ Wechselrichter', 9, C_GRAY)}
+          {/* Coverage progress bar */}
+          <rect x={208} y={128} width={148} height={10} rx={5} fill="#1f2937" />
+          <rect x={208} y={128}
+            width={Math.round(148 * Math.min(1, f.local_coverage_pct / 100))}
+            height={10} rx={5} fill={C_GREEN} />
+          {tw(282, 150, `Deckungsgrad: ${f.local_coverage_pct.toFixed(1)} %`, 9, '#9ca3af')}
+          {tw(282, 166, `B+ Bedarf:  ${fmtW(f.bplus_demand_w)}`, 9, C_GRAY)}
+          {tw(282, 181, `Lokal:  ${fmtW(f.local_supply_w)}`, 9, C_GREEN)}
+          {tw(282, 196,
+            `Netz-Zukauf:  ${fmtW(f.grid_to_bplus_w)}`,
+            9, f.grid_to_bplus_w > 0 ? C_AMBER : C_GRAY)}
+        </DeviceBox>
+
+        {/* ── Output boxes ── */}
+        <DeviceBox x={428} y={12} w={144} h={54} color={C_GREEN}>
+          {tw(500, 30, 'B+  Lokal versorgt', 9, C_GREEN)}
+          {tw(500, 48, fmtW(f.local_supply_w), 13, '#f9fafb')}
+        </DeviceBox>
+
+        <DeviceBox x={428} y={92} w={144} h={54} color={f.grid_to_bplus_w > 0 ? C_AMBER : C_DIM}>
+          {tw(500, 110, 'B+  Netz-Ergänzung', 9, f.grid_to_bplus_w > 0 ? C_AMBER : C_GRAY)}
+          {tw(500, 128, fmtW(f.grid_to_bplus_w), 13, '#f9fafb')}
+        </DeviceBox>
+
+        <DeviceBox x={428} y={172} w={144} h={54} color={C_GRAY}>
+          {tw(500, 190, 'B–  Netz-Versorgung', 9, C_GRAY)}
+          {tw(500, 208, fmtW(f.bminus_demand_w), 13, '#f9fafb')}
+        </DeviceBox>
+
+        {/* ── Sources → EMS ── */}
+        <FlowArrow x1={125} y1={40}  x2={192} y2={118} power={f.pv_w}                color={C_GREEN} />
+        <FlowArrow x1={125} y1={143} x2={192} y2={155} power={f.battery_discharge_w} color={C_BLUE}  />
+        <FlowArrow x1={192} y1={168} x2={125} y2={156} power={f.battery_charge_w}    color={C_BLUE}  reverse />
+        <FlowArrow x1={125} y1={237} x2={192} y2={175} power={f.grid_to_bplus_w}     color={C_AMBER} />
+
+        {/* ── EMS → Outputs ── */}
+        <FlowArrow x1={372} y1={118} x2={428} y2={39}  power={f.local_supply_w}  color={C_GREEN} />
+        <FlowArrow x1={372} y1={148} x2={428} y2={119} power={f.grid_to_bplus_w} color={C_AMBER} />
+        <FlowArrow x1={372} y1={175} x2={428} y2={199} power={f.bminus_demand_w} color={C_GRAY}  />
+
+        {/* PV surplus export (vertical shortcut on left side) */}
+        {f.pv_to_grid_w > 0 && (
+          <FlowArrow x1={55} y1={70} x2={55} y2={210} power={f.pv_to_grid_w} color={C_GREEN} reverse />
+        )}
+        {f.pv_to_grid_w > 0 &&
+          tw(62, 142, `Export ${fmtW(f.pv_to_grid_w)}`, 8, C_GREEN, 'start')}
+      </svg>
+    </div>
+  )
+}
+
+// ── Meter Card ────────────────────────────────────────────────────────────────
+
+function MeterCard({
+  meter, flowW, localW, onChange,
+}: {
+  meter: Meter
+  flowW: number
+  localW: number
+  onChange: (m: Meter) => void
+}) {
+  const gridW = Math.max(0, flowW - localW)
+  const pct   = flowW > 0 ? localW / flowW : 0
+
+  return (
+    <div className={`rounded-xl border p-3 space-y-2 ${
+      meter.is_bplus ? 'border-green-800 bg-green-950/20' : 'border-gray-700 bg-gray-900'
+    }`}>
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-xs font-medium text-gray-200 truncate">{meter.name}</span>
+        <button
+          onClick={() => onChange({ ...meter, is_bplus: !meter.is_bplus })}
+          title="B+ Teilnehmer umschalten"
+          className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-bold border transition-colors ${
+            meter.is_bplus
+              ? 'bg-green-900/40 text-green-400 border-green-700'
+              : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500'
+          }`}
+        >
+          B+
+        </button>
+      </div>
+
+      <div>
+        <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+          <span>Verbrauch</span>
+          <span className="text-gray-300 font-mono">{meter.load_kw.toFixed(2)} kW</span>
+        </div>
+        <input
+          type="range" min={0} max={4} step={0.05}
+          value={meter.load_kw}
+          onChange={e => onChange({ ...meter, load_kw: parseFloat(e.target.value) })}
+          className="w-full h-1.5 rounded-full accent-green-500 cursor-pointer"
+        />
+      </div>
+
+      {meter.is_bplus ? (
+        <>
+          <div className="flex h-2 rounded-full overflow-hidden bg-gray-800">
+            <div className="bg-green-500 transition-all duration-300" style={{ width: `${pct * 100}%` }} />
+            <div className="bg-amber-500 transition-all duration-300" style={{ width: `${(1 - pct) * 100}%` }} />
+          </div>
+          <div className="flex justify-between text-[9px]">
+            <span className="text-green-500">{fmtW(localW)} lokal</span>
+            <span className="text-amber-500">{fmtW(gridW)} Netz</span>
+          </div>
+        </>
+      ) : (
+        <div className="text-[10px] text-amber-500">{fmtW(flowW)} vom Netz</div>
+      )}
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+const DEFAULT_METERS: Meter[] = [
+  { id: 'm1', name: 'Familie Müller',  load_kw: 1.2, is_bplus: true  },
+  { id: 'm2', name: 'Hr. Schmidt',     load_kw: 0.8, is_bplus: true  },
+  { id: 'm3', name: 'Fr. Berger',      load_kw: 1.5, is_bplus: true  },
+  { id: 'm4', name: 'Familie Wagner',  load_kw: 2.0, is_bplus: true  },
+  { id: 'm5', name: 'Hr. Huber',       load_kw: 0.6, is_bplus: false },
+  { id: 'm6', name: 'Fr. Novak',       load_kw: 1.0, is_bplus: false },
+]
+
+interface PushResult { ok: boolean; ts?: string; error?: string }
+
+export default function SimDashboard() {
+  const [pvKw,      setPvKw]      = useState(5.0)
+  const [socPct,    setSocPct]    = useState(60.0)
+  const [intervalS, setIntervalS] = useState(2)
+  const [meters,    setMeters]    = useState<Meter[]>(DEFAULT_METERS)
+  const [tick,      setTick]      = useState(0)
+  const [syncEms,   setSyncEms]   = useState(false)
+  const [dbReady,   setDbReady]   = useState<boolean | null>(null)
+  const [lastPush,  setLastPush]  = useState<PushResult | null>(null)
+
+  const flow = computeFlow(pvKw, socPct, meters)
+
+  // Check DB availability once on mount
+  useEffect(() => {
+    fetch('/sim/db_status').then(r => r.json())
+      .then(d => setDbReady(d.available))
+      .catch(() => setDbReady(false))
+  }, [])
+
+  // Animation tick
+  useEffect(() => {
+    const id = window.setInterval(() => setTick(t => t + 1), intervalS * 1000)
+    return () => clearInterval(id)
+  }, [intervalS])
+
+  // Sync state to sim backend so its /sim/state stays current
+  const syncBackend = useCallback(() => {
+    fetch('/sim/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pv_kw: pvKw, soc_pct: socPct, meters, interval_s: intervalS }),
+    }).catch(() => {})
+  }, [pvKw, socPct, meters, intervalS])
+
+  useEffect(() => { syncBackend() }, [syncBackend])
+
+  // Push to EMS DB when sync is active (fires every intervalS seconds)
+  useEffect(() => {
+    if (!syncEms) return
+    let active = true
+    async function push() {
+      try {
+        const res = await fetch('/sim/push', { method: 'POST' })
+        const data: PushResult = await res.json()
+        if (active) setLastPush(data)
+      } catch {
+        if (active) setLastPush({ ok: false, error: 'Verbindungsfehler' })
+      }
+    }
+    push() // immediate first push
+    // Push faster than meter-collector (5s) so simulation data dominates the DB
+    const pushMs = Math.min(intervalS * 1000, 2000)
+    const id = window.setInterval(push, pushMs)
+    return () => { active = false; clearInterval(id) }
+  }, [syncEms, intervalS])
+
+  function reset() {
+    setPvKw(5.0); setSocPct(60.0); setMeters(DEFAULT_METERS); setIntervalS(2)
+    setSyncEms(false); setLastPush(null)
+  }
+
+  // Per-meter local allocation: proportional to B+ load share
+  const bplusTotalKw = meters.filter(m => m.is_bplus).reduce((s, m) => s + m.load_kw, 0)
+  function meterLocalW(m: Meter): number {
+    if (!m.is_bplus || bplusTotalKw === 0) return 0
+    const share = m.load_kw / bplusTotalKw
+    return Math.min(m.load_kw * 1000, share * flow.local_supply_w)
+  }
+
+  const covColor = flow.local_coverage_pct >= 80 ? 'text-green-400'
+    : flow.local_coverage_pct >= 40 ? 'text-amber-400' : 'text-red-400'
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-xl font-semibold">Dashboard Simulation</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Interaktive Visualisierung des Energieflusses</p>
+        </div>
+
+        {/* EMS Sync toggle */}
+        <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-colors ${
+          syncEms
+            ? 'bg-green-950/30 border-green-700'
+            : 'bg-gray-900 border-gray-700'
+        }`}>
+          <div className="text-xs space-y-0.5">
+            <div className="font-medium text-gray-200">EMS synchronisieren</div>
+            <div className="text-gray-500">
+              {dbReady === null ? 'Prüfe Datenbank…'
+                : dbReady ? 'Datenbank erreichbar'
+                : 'DB nicht verfügbar'}
+            </div>
+            {lastPush && (
+              <div className={lastPush.ok ? 'text-green-400' : 'text-red-400'}>
+                {lastPush.ok
+                  ? `✓ Push ${lastPush.ts?.slice(11, 19) ?? ''}`
+                  : `✗ ${lastPush.error}`}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => { if (dbReady) setSyncEms(v => !v) }}
+            disabled={!dbReady}
+            title={dbReady ? 'Simulation → EMS DB ein/ausschalten' : 'EMS-Datenbank nicht erreichbar'}
+            className={`relative w-12 h-6 rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+              syncEms ? 'bg-green-500 border-green-400' : 'bg-gray-700 border-gray-600'
+            }`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+              syncEms ? 'translate-x-6' : 'translate-x-0.5'
+            }`} />
+          </button>
+        </div>
+
+        <button
+          onClick={reset}
+          className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700 transition-colors"
+        >
+          Zurücksetzen
+        </button>
+      </div>
+
+      {/* Sync hint */}
+      {syncEms && (
+        <div className="flex items-start gap-2 text-xs bg-green-950/20 border border-green-800 rounded-lg px-3 py-2.5 text-green-300">
+          <span className="shrink-0 text-green-400 font-bold">↗</span>
+          <span>
+            Simulation schreibt alle {intervalS}s in die EMS-Datenbank.
+            Das <strong>EMS-Dashboard</strong> und die <strong>Gerätestatus</strong>-Seite zeigen jetzt deine Simulation.
+            Der <em>inverter-controller</em> berechnet automatisch neue Regelentscheidungen auf Basis der simulierten Werte.
+          </span>
+        </div>
+      )}
+
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Deckungsgrad B+', value: `${flow.local_coverage_pct.toFixed(1)} %`, cls: covColor },
+          { label: 'PV-Ertrag',       value: fmtW(flow.pv_w),         cls: 'text-green-400' },
+          { label: 'Netz-Import',     value: fmtW(flow.grid_import_w), cls: 'text-amber-400' },
+          {
+            label: 'Batterie',
+            value: flow.battery_charge_w > 0    ? `↑ ${fmtW(flow.battery_charge_w)}`
+              : flow.battery_discharge_w > 0 ? `↓ ${fmtW(flow.battery_discharge_w)}`
+              : 'Standby',
+            cls: 'text-blue-400',
+          },
+        ].map(s => (
+          <div key={s.label} className="bg-gray-900 rounded-xl border border-gray-800 px-4 py-3">
+            <div className="text-xs text-gray-500">{s.label}</div>
+            <div className={`text-lg font-bold font-mono mt-0.5 ${s.cls}`}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main: controls + diagram */}
+      <div className="grid lg:grid-cols-5 gap-4">
+        {/* Source & simulation controls */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-5">
+            <p className="text-sm font-medium text-gray-300">Energiequellen</p>
+
+            {/* PV */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-green-400 font-medium">☀  Photovoltaik</span>
+                <span className="text-gray-200 font-mono">{pvKw.toFixed(1)} kW</span>
+              </div>
+              <input type="range" min={0} max={20} step={0.1} value={pvKw}
+                onChange={e => setPvKw(parseFloat(e.target.value))}
+                className="w-full h-2 rounded-full accent-green-500 cursor-pointer" />
+              <div className="flex justify-between text-[10px] text-gray-600">
+                <span>0 kW</span><span>20 kW</span>
+              </div>
+            </div>
+
+            {/* Battery SOC */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-blue-400 font-medium">⚡ Batterie-Ladezustand</span>
+                <span className="text-gray-200 font-mono">{socPct.toFixed(0)} %</span>
+              </div>
+              <input type="range" min={0} max={100} step={1} value={socPct}
+                onChange={e => setSocPct(parseFloat(e.target.value))}
+                className="w-full h-2 rounded-full accent-blue-500 cursor-pointer" />
+              <div className="flex h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-200"
+                  style={{
+                    width: `${socPct}%`,
+                    backgroundColor: socPct > 50 ? C_BLUE : socPct > 20 ? C_AMBER : '#ef4444',
+                  }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-gray-500">
+                <span>{(socPct * 0.6).toFixed(1)} kWh gespeichert</span>
+                {socPct <= 20 && <span className="text-red-400">Entladen gesperrt</span>}
+              </div>
+            </div>
+
+            {/* Interval */}
+            <div className="space-y-2">
+              <p className="text-xs text-gray-400 font-medium">Animations-Intervall</p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 5].map(s => (
+                  <button key={s} onClick={() => setIntervalS(s)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      intervalS === s
+                        ? 'bg-green-900/30 text-green-400 border-green-700'
+                        : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-600'
+                    }`}
+                  >
+                    {s}s
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-600">Tick #{tick}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Flow diagram */}
+        <div className="lg:col-span-3">
+          <FlowDiagram flow={flow} socPct={socPct} />
+        </div>
+      </div>
+
+      {/* Meter cards */}
+      <div>
+        <p className="text-sm font-medium text-gray-400 mb-3">Smartmeter der Bewohner</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {meters.map((m, i) => (
+            <MeterCard
+              key={m.id} meter={m}
+              flowW={m.load_kw * 1000}
+              localW={meterLocalW(m)}
+              onChange={updated => setMeters(prev => prev.map((x, j) => j === i ? updated : x))}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+        <p className="text-xs font-medium text-gray-400 mb-3">Legende Energiefluss</p>
+        <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+          {[
+            { color: C_GREEN, label: 'Lokale Energie (PV → B+ Teilnehmer)' },
+            { color: C_BLUE,  label: 'Batterie (Laden ↑ / Entladen ↓)' },
+            { color: C_AMBER, label: 'Stromnetz (Import / Export)' },
+            { color: C_GRAY,  label: 'B– Teilnehmer (immer Netz)' },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <div className="w-6 h-1.5 rounded-full" style={{ background: color }} />
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}

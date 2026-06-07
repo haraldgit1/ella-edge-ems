@@ -11,6 +11,8 @@ logs/**/
 reports/*.pdf
 reports/*.csv
 reports/*.zip
+reports/*.json
+reports/tmp/
 
 # Keep placeholder dirs
 !data/.gitkeep
@@ -43,6 +45,7 @@ nginx/certs/*.crt
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDE & Claude Code
 .vscode/
 .idea/
+.claude/

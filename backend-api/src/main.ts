@@ -10,6 +10,7 @@ import { dashboardRoutes } from './routes/dashboard'
 import { alarmRoutes } from './routes/alarms'
 import { controlDecisionRoutes } from './routes/controlDecisions'
 import { settlementRoutes } from './routes/settlement'
+import { reportRoutes } from './routes/reports'
 
 const PORT = parseInt(process.env.API_PORT ?? '3000')
 
@@ -26,6 +27,7 @@ const app = new Elysia()
   .use(alarmRoutes)
   .use(controlDecisionRoutes)
   .use(settlementRoutes)
+  .use(reportRoutes)
   .listen(PORT)
 
 console.log(`Ella Backend API running on port ${PORT}`)

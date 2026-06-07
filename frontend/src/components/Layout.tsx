@@ -7,8 +7,10 @@ const nav = [
   { to: '/operator/meters',       label: 'Zähler',    group: 'Betreiber' },
   { to: '/operator/alarms',       label: 'Alarme',      group: 'Betreiber' },
   { to: '/operator/settlement',   label: 'Settlement', group: 'Betreiber' },
+  { to: '/operator/reports',      label: 'Reports',    group: 'Betreiber' },
   { to: '/resident/dashboard',    label: 'Strommix',   group: 'Bewohner'  },
   { to: '/ops/rules',             label: 'Regelung',  group: 'Ops'       },
+  { to: '/simulation',            label: 'Simulation', group: 'Demo'     },
 ]
 
 export default function Layout() {

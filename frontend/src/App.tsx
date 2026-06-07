@@ -7,7 +7,9 @@ import Meters from './pages/Meters'
 import Devices from './pages/Devices'
 import Alarms from './pages/Alarms'
 import Settlement from './pages/Settlement'
+import Reports from './pages/Reports'
 import OpsRules from './pages/OpsRules'
+import SimDashboard from './pages/SimDashboard'
 
 export default function App() {
   return (
@@ -20,8 +22,10 @@ export default function App() {
         <Route path="operator/meters"       element={<Meters />} />
         <Route path="operator/alarms"       element={<Alarms />} />
         <Route path="operator/settlement"   element={<Settlement />} />
+        <Route path="operator/reports"      element={<Reports />} />
         <Route path="resident/dashboard"    element={<ResidentDashboard />} />
         <Route path="ops/rules"             element={<OpsRules />} />
+        <Route path="simulation"            element={<SimDashboard />} />
       </Route>
     </Routes>
   )

@@ -33,4 +33,8 @@ export const api = {
   settlementSummary:      (month: string) => get<any>(`/settlement/summary?month=${month}`),
   settlementPlausibility: (month: string) => get<any>(`/settlement/plausibility?month=${month}`),
   settlementApprove:      (month: string) => post<any>('/settlement/approve', { month }),
+  reports:                () => get<any[]>('/reports'),
+  reportGenerate:         (body: object) => post<any>('/reports/generate', body),
+  reportStatus:           (id: string) => get<any>(`/reports/${id}/status`),
+  reportDownloadUrl:      (id: string) => `/api/reports/${id}/download`,
 }

@@ -236,7 +236,8 @@ CREATE TABLE IF NOT EXISTS reports (
     status          TEXT NOT NULL DEFAULT 'PENDING',
     created_by      TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    completed_at    TEXT
+    completed_at    TEXT,
+    params          TEXT
 );
 
 -- ── Alarms ─────────────────────────────────────────────────────────────────
