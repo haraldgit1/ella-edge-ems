@@ -1,18 +1,34 @@
+import { useState, useCallback } from 'react'
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
-  Tooltip, Legend, CartesianGrid,
+  ResponsiveContainer, ComposedChart, Line, Bar,
+  XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from 'recharts'
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../api/client'
 import { Tile } from '../components/Tile'
 import { StatusBadge } from '../components/StatusBadge'
 
-function formatTime(ts: string) {
-  return ts?.slice(11, 16) ?? ''
+const RANGES = [
+  { s:    300, label: '5 min'  },
+  { s:    900, label: '15 min' },
+  { s:   1800, label: '30 min' },
+  { s:   3600, label: '1 Std'  },
+  { s:  10800, label: '3 Std'  },
+  { s:  21600, label: '6 Std'  },
+  { s:  86400, label: '24 Std' },
+]
+
+function fmtTick(ts: string, rangeS: number): string {
+  if (!ts) return ''
+  if (rangeS >= 86400) return ts.slice(8, 10) + '. ' + ts.slice(11, 16)
+  if (rangeS >= 3600)  return ts.slice(11, 16)
+  return ts.slice(11, 19)
 }
 
 export default function DashboardOperator() {
-  const { data, error } = usePolling(api.dashboardOperator, 5000)
+  const [rangeS, setRangeS] = useState(1800)
+  const fetcher = useCallback(() => api.dashboardOperator(rangeS), [rangeS])
+  const { data, error } = usePolling(fetcher, 5000)
 
   if (error) return (
     <div className="text-red-400 bg-red-900/20 rounded-xl p-4 border border-red-800">
@@ -20,14 +36,18 @@ export default function DashboardOperator() {
     </div>
   )
 
-  const ps = data?.power_state
-  const dec = data?.latest_decision
-  const today = data?.today
+  const ps      = data?.power_state
+  const dec     = data?.latest_decision
+  const today   = data?.today
+  const bucketS = data?.bucket_s ?? Math.round(rangeS / 120)
+
   const history = (data?.power_history ?? []).map((r: any) => ({
-    t: formatTime(r.timestamp_utc),
-    'B+': Math.round(r.bplus_power_w),
-    'B-': Math.round(r.bminus_power_w),
-    'PV': Math.round(r.pv_power_w ?? 0),
+    t:    fmtTick(r.timestamp_utc, rangeS),
+    raw:  r.timestamp_utc,
+    'B+': Math.round(r.bplus_power_w   ?? 0),
+    'B-': Math.round(r.bminus_power_w  ?? 0),
+    'PV': Math.round(r.pv_power_w      ?? 0),
+    'SOC': r.battery_soc_pct != null ? Math.round(r.battery_soc_pct) : null,
   }))
 
   const simMode = ps !== null
@@ -129,34 +149,80 @@ export default function DashboardOperator() {
       )}
 
       {/* Power History Chart */}
-      <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-        <p className="text-sm text-gray-400 mb-4">Leistungsverlauf — letzte 30 Minuten</p>
+      <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-4">
+        {/* Header with range selector */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <p className="text-sm font-medium text-gray-300">Leistungsverlauf</p>
+            <p className="text-[11px] text-gray-600 mt-0.5">
+              {history.length} Punkte · Ø {bucketS < 60 ? `${bucketS}s` : `${Math.round(bucketS/60)} min`} / Punkt
+            </p>
+          </div>
+          <div className="flex gap-1">
+            {RANGES.map(r => (
+              <button
+                key={r.s}
+                onClick={() => setRangeS(r.s)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                  rangeS === r.s
+                    ? 'bg-green-900/40 text-green-400 border-green-700'
+                    : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {history.length < 2 ? (
-          <p className="text-gray-600 text-sm text-center py-8">Sammle Daten… (noch {Math.max(0, 2 - history.length)} Messpunkte)</p>
+          <p className="text-gray-600 text-sm text-center py-8">
+            Keine Daten für diesen Zeitraum.
+          </p>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={history} margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <ResponsiveContainer width="100%" height={240}>
+            <ComposedChart data={history} margin={{ top: 4, right: 50, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
               <XAxis
                 dataKey="t"
-                tick={{ fill: '#6b7280', fontSize: 11 }}
+                tick={{ fill: '#6b7280', fontSize: 10 }}
                 interval="preserveStartEnd"
+                minTickGap={50}
               />
+              {/* Left Y-axis: power in W */}
               <YAxis
-                tick={{ fill: '#6b7280', fontSize: 11 }}
-                unit="W"
-                width={55}
+                yAxisId="w"
+                orientation="left"
+                tick={{ fill: '#6b7280', fontSize: 10 }}
+                unit=" W"
+                width={58}
+                tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+              />
+              {/* Right Y-axis: SOC in % */}
+              <YAxis
+                yAxisId="soc"
+                orientation="right"
+                domain={[0, 100]}
+                tick={{ fill: '#3b82f6', fontSize: 10 }}
+                unit=" %"
+                width={36}
               />
               <Tooltip
-                contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8 }}
-                labelStyle={{ color: '#9ca3af' }}
-                formatter={(v: number) => [`${v} W`]}
+                contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: '#9ca3af', marginBottom: 4 }}
+                formatter={(v: number, name: string) =>
+                  name === 'SOC' ? [`${v} %`, 'Batterie SOC'] : [`${v} W`, name]
+                }
               />
-              <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
-              <Line type="monotone" dataKey="B+" stroke="#22c55e" dot={false} strokeWidth={2} />
-              <Line type="monotone" dataKey="PV" stroke="#facc15" dot={false} strokeWidth={2} />
-              <Line type="monotone" dataKey="B-" stroke="#6b7280" dot={false} strokeWidth={1.5} strokeDasharray="4 2" />
-            </LineChart>
+              <Legend
+                wrapperStyle={{ color: '#9ca3af', fontSize: 11, paddingTop: 8 }}
+                formatter={(value) => value === 'SOC' ? 'Batterie SOC (%)' : value}
+              />
+              <Line yAxisId="w"   type="monotone" dataKey="B+" stroke="#22c55e" dot={false} strokeWidth={2} />
+              <Line yAxisId="w"   type="monotone" dataKey="PV" stroke="#facc15" dot={false} strokeWidth={2} />
+              <Line yAxisId="w"   type="monotone" dataKey="B-" stroke="#6b7280" dot={false} strokeWidth={1.5} strokeDasharray="4 2" />
+              <Line yAxisId="soc" type="monotone" dataKey="SOC" stroke="#3b82f6" dot={false} strokeWidth={1.5} strokeDasharray="2 3" connectNulls />
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>

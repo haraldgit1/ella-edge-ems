@@ -18,7 +18,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 
 export const api = {
   health:              () => get<any>('/health'),
-  dashboardOperator:   () => get<any>('/dashboard/operator'),
+  dashboardOperator:   (rangeS = 1800) => get<any>(`/dashboard/operator?range=${rangeS}`),
   dashboardResident:   (id: string) => get<any>(`/dashboard/resident/${id}`),
   dashboardDevices:    () => get<any>('/dashboard/devices'),
   participants:        () => get<any[]>('/participants'),

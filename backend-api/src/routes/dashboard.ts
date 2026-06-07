@@ -3,7 +3,7 @@ import { getDb } from '../db/init'
 
 export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
 
-  .get('/operator', () => {
+  .get('/operator', ({ query }: { query: Record<string, string> }) => {
     const db = getDb()
 
     const ps = db.query(
@@ -18,12 +18,27 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       "SELECT * FROM control_decisions ORDER BY timestamp_utc DESC LIMIT 1"
     ).get() as any
 
-    // Last 30 min of power history for charts (one point per ~30s = max 60 points)
+    // Configurable history: ?range=<seconds>, default 1800 (30 min)
+    // Always returns ~120 bucketed points regardless of range
+    const rangeRaw = parseInt(query?.range ?? '1800')
+    const rangeS   = Math.min(86400, Math.max(300, isNaN(rangeRaw) ? 1800 : rangeRaw))
+    const bucketS  = Math.max(5, Math.round(rangeS / 120))
+
+    // SQLite time-bucket aggregation: floor(unix_ts / bucket) * bucket → AVG per bucket
     const history = db.query(`
-      SELECT timestamp_utc, bplus_power_w, bminus_power_w, pv_power_w, battery_soc_pct
+      SELECT
+        datetime(
+          CAST(strftime('%s', timestamp_utc) AS INTEGER) / ${bucketS} * ${bucketS},
+          'unixepoch'
+        ) AS timestamp_utc,
+        ROUND(AVG(bplus_power_w),  1) AS bplus_power_w,
+        ROUND(AVG(bminus_power_w), 1) AS bminus_power_w,
+        ROUND(AVG(pv_power_w),     1) AS pv_power_w,
+        ROUND(AVG(battery_soc_pct),1) AS battery_soc_pct
       FROM power_states
       WHERE site_id = 'site-demo-01'
-        AND timestamp_utc >= datetime('now', '-30 minutes')
+        AND CAST(strftime('%s', timestamp_utc) AS INTEGER) >= strftime('%s', 'now') - ${rangeS}
+      GROUP BY CAST(strftime('%s', timestamp_utc) AS INTEGER) / ${bucketS}
       ORDER BY timestamp_utc ASC
     `).all() as any[]
 
@@ -43,6 +58,8 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       active_alarms: activeAlarms,
       latest_decision: latestDecision ?? null,
       power_history: history,
+      range_s:  rangeS,
+      bucket_s: bucketS,
       today: {
         bplus_kwh: Math.round((todaySettlement?.bplus_kwh ?? 0) / 1000 * 100) / 100,
         local_kwh: Math.round((todaySettlement?.local_kwh ?? 0) / 1000 * 100) / 100,
