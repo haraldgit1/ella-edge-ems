@@ -1,18 +1,17 @@
-import Database from 'better-sqlite3'
+import { Database } from 'bun:sqlite'
 import { readFileSync } from 'fs'
-import { join } from 'path'
 
 const DB_PATH = process.env.ELLA_DB_PATH ?? '/data/ella-edge.db'
 const SCHEMA_PATH = '/database/schema.sql'
 const SEED_PATH = '/database/seed/demo_seed.sql'
 
-let _db: Database.Database | null = null
+let _db: Database | null = null
 
-export function getDb(): Database.Database {
+export function getDb(): Database {
   if (!_db) {
-    _db = new Database(DB_PATH)
-    _db.pragma('journal_mode = WAL')
-    _db.pragma('foreign_keys = ON')
+    _db = new Database(DB_PATH, { create: true })
+    _db.exec('PRAGMA journal_mode = WAL')
+    _db.exec('PRAGMA foreign_keys = ON')
   }
   return _db
 }
@@ -25,7 +24,7 @@ export async function initDatabase(): Promise<void> {
     db.exec(schema)
     console.log('Database schema applied')
   } catch (e) {
-    console.warn('Schema file not found at', SCHEMA_PATH, '– skipping')
+    console.warn('Schema file not found at', SCHEMA_PATH, '– skipping:', String(e).split('\n')[0])
   }
 
   try {
@@ -33,6 +32,6 @@ export async function initDatabase(): Promise<void> {
     db.exec(seed)
     console.log('Demo seed applied')
   } catch (e) {
-    console.warn('Seed file not found at', SEED_PATH, '– skipping')
+    console.warn('Seed file not found at', SEED_PATH, '– skipping:', String(e).split('\n')[0])
   }
 }

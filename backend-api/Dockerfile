@@ -6,6 +6,7 @@ COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile
 
 FROM base AS runner
+RUN apk add --no-cache curl
 COPY --from=deps /app/node_modules ./node_modules
 COPY src ./src
 COPY tsconfig.json ./
