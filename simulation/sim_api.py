@@ -1,5 +1,5 @@
 """Ella Simulation API – standalone energy-flow simulator, optional EMS DB sync."""
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -62,12 +62,13 @@ def compute_flow(s: dict) -> dict:
     bplus_demand_w  = sum(m["load_kw"] * 1000 for m in bplus)
     bminus_demand_w = sum(m["load_kw"] * 1000 for m in bminus)
 
-    discharge_avail_w = MAX_DISCHARGE_W if soc > 20 else 0.0
+    discharge_avail_w = MAX_DISCHARGE_W if soc > 20  else 0.0
+    charge_avail_w    = MAX_CHARGE_W    if soc < 100 else 0.0  # no charging when full
 
     if pv_w >= bplus_demand_w:
         pv_to_bplus_w       = bplus_demand_w
         surplus_w           = pv_w - bplus_demand_w
-        battery_charge_w    = min(surplus_w, MAX_CHARGE_W)
+        battery_charge_w    = min(surplus_w, charge_avail_w)
         pv_to_grid_w        = max(0.0, surplus_w - battery_charge_w)
         battery_discharge_w = 0.0
         grid_to_bplus_w     = 0.0
@@ -141,14 +142,22 @@ def db_status():
 
 
 @app.post("/sim/push")
-def push_to_ems():
+def push_to_ems(body: Optional[SimUpdate] = Body(None)):
     """
-    Write current simulation state into EMS DB tables.
-    Writes: measurements (per meter) + power_states.
-    The running inverter-controller will react and produce a control_decision.
+    Write simulation state into EMS DB.
+    Accepts optional body with current state from the React frontend — this is
+    the authoritative source when EMS sync is active, because SOC evolves in
+    the frontend and is passed here directly rather than via a separate /update call.
     """
     if not ELLA_DB_PATH or not os.path.exists(ELLA_DB_PATH):
         return {"ok": False, "error": "EMS database not accessible"}
+
+    # Apply any state from the React frontend before computing flow
+    if body:
+        if body.pv_kw      is not None: state["pv_kw"]     = max(0.0, min(20.0, body.pv_kw))
+        if body.soc_pct    is not None: state["soc_pct"]    = max(0.0, min(100.0, body.soc_pct))
+        if body.meters     is not None: state["meters"]     = [m.model_dump() for m in body.meters]
+        if body.interval_s is not None: state["interval_s"] = max(1, min(5, body.interval_s))
 
     s = state
     f = compute_flow(s)

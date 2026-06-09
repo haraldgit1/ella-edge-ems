@@ -34,7 +34,8 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
         ROUND(AVG(bplus_power_w),  1) AS bplus_power_w,
         ROUND(AVG(bminus_power_w), 1) AS bminus_power_w,
         ROUND(AVG(pv_power_w),     1) AS pv_power_w,
-        ROUND(AVG(battery_soc_pct),1) AS battery_soc_pct
+        ROUND(AVG(battery_soc_pct),1) AS battery_soc_pct,
+        ROUND(MAX(0.0, AVG(bplus_power_w) - AVG(COALESCE(pv_power_w, 0))) + AVG(bminus_power_w), 1) AS grid_import_w
       FROM power_states
       WHERE site_id = 'site-demo-01'
         AND CAST(strftime('%s', timestamp_utc) AS INTEGER) >= strftime('%s', 'now') - ${rangeS}

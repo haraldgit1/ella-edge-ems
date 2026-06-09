@@ -36,17 +36,45 @@ export default function DashboardOperator() {
     </div>
   )
 
+  function batStatus(ps: any, dec: any): { label: string; color: string } {
+    const soc    = ps?.battery_soc_pct ?? 0
+    const pv     = ps?.pv_power_w ?? 0
+    const bp     = ps?.bplus_power_w ?? 0
+    const reason = dec?.reason ?? ''
+
+    const fmtW = (w: number) => w >= 1000 ? `${(w / 1000).toFixed(2)} kW` : `${Math.round(w)} W`
+
+    // Derive battery flow from power balance: positive surplus → charge, deficit → discharge
+    const chargeW    = Math.min(Math.max(0, pv - bp), 5000)
+    const dischargeW = Math.min(Math.max(0, bp - pv), 5000)
+
+    if (soc <= 20 || reason === 'LIMITED_BY_BATTERY_SOC')
+      return { label: 'Entladen gesperrt', color: 'text-red-400' }
+    if (soc >= 100)
+      return { label: 'Voll  –  0 W', color: 'text-green-400' }
+    if (chargeW > 50)
+      return { label: `↑ Laden  ${fmtW(chargeW)}`, color: 'text-green-400' }
+    if (dischargeW > 50)
+      return { label: `↓ Entladen  ${fmtW(dischargeW)}`, color: 'text-blue-300' }
+    return { label: 'Standby  –  0 W', color: 'text-gray-500' }
+  }
+
   const ps      = data?.power_state
   const dec     = data?.latest_decision
   const today   = data?.today
   const bucketS = data?.bucket_s ?? Math.round(rangeS / 120)
+  // Grid export: PV surplus beyond B+ demand, minus battery charging (battery fills first)
+  const pvSurplusW  = ps ? Math.max(0, (ps.pv_power_w ?? 0) - ps.bplus_power_w) : 0
+  const batChargeW  = (ps?.battery_soc_pct ?? 100) < 100 ? Math.min(pvSurplusW, 5000) : 0
+  const gridExportW = Math.max(0, Math.round(pvSurplusW - batChargeW))
 
   const history = (data?.power_history ?? []).map((r: any) => ({
-    t:    fmtTick(r.timestamp_utc, rangeS),
-    raw:  r.timestamp_utc,
-    'B+': Math.round(r.bplus_power_w   ?? 0),
-    'B-': Math.round(r.bminus_power_w  ?? 0),
-    'PV': Math.round(r.pv_power_w      ?? 0),
+    t:     fmtTick(r.timestamp_utc, rangeS),
+    raw:   r.timestamp_utc,
+    'B+':  Math.round(r.bplus_power_w   ?? 0),
+    'B-':  Math.round(r.bminus_power_w  ?? 0),
+    'PV':  Math.round(r.pv_power_w      ?? 0),
+    'Netz': Math.round(r.grid_import_w  ?? 0),
     'SOC': r.battery_soc_pct != null ? Math.round(r.battery_soc_pct) : null,
   }))
 
@@ -91,6 +119,8 @@ export default function DashboardOperator() {
             (ps?.battery_soc_pct ?? 100) < 40 ? 'text-yellow-400' :
             'text-blue-400'
           }
+          sub={ps ? batStatus(ps, dec).label : undefined}
+          subColor={ps ? batStatus(ps, dec).color : undefined}
         />
         <Tile
           label="Lokaler Deckungsgrad"
@@ -98,6 +128,13 @@ export default function DashboardOperator() {
           unit="%"
           color="text-green-400"
           sub={today ? `lokal: ${today.local_kwh} kWh` : undefined}
+        />
+        <Tile
+          label="Netz-Einspeisung PV"
+          value={gridExportW > 0 ? gridExportW : ps ? 0 : null}
+          unit="W"
+          color={gridExportW > 0 ? 'text-amber-400' : 'text-gray-500'}
+          sub={gridExportW > 0 ? 'PV-Überschuss → Netz' : 'keine Einspeisung'}
         />
         <Tile
           label="B- Verbrauch"
@@ -216,12 +253,13 @@ export default function DashboardOperator() {
               />
               <Legend
                 wrapperStyle={{ color: '#9ca3af', fontSize: 11, paddingTop: 8 }}
-                formatter={(value) => value === 'SOC' ? 'Batterie SOC (%)' : value}
+                formatter={(value) => value === 'SOC' ? 'Batterie SOC (%)' : value === 'Netz' ? 'Netz-Bezug' : value}
               />
-              <Line yAxisId="w"   type="monotone" dataKey="B+" stroke="#22c55e" dot={false} strokeWidth={2} />
-              <Line yAxisId="w"   type="monotone" dataKey="PV" stroke="#facc15" dot={false} strokeWidth={2} />
-              <Line yAxisId="w"   type="monotone" dataKey="B-" stroke="#6b7280" dot={false} strokeWidth={1.5} strokeDasharray="4 2" />
-              <Line yAxisId="soc" type="monotone" dataKey="SOC" stroke="#3b82f6" dot={false} strokeWidth={1.5} strokeDasharray="2 3" connectNulls />
+              <Line yAxisId="w"   type="monotone" dataKey="B+"   stroke="#22c55e" dot={false} strokeWidth={2} />
+              <Line yAxisId="w"   type="monotone" dataKey="PV"   stroke="#facc15" dot={false} strokeWidth={2} />
+              <Line yAxisId="w"   type="monotone" dataKey="Netz" stroke="#ef4444" dot={false} strokeWidth={2} />
+              <Line yAxisId="w"   type="monotone" dataKey="B-"   stroke="#6b7280" dot={false} strokeWidth={1.5} strokeDasharray="4 2" />
+              <Line yAxisId="soc" type="monotone" dataKey="SOC"  stroke="#3b82f6" dot={false} strokeWidth={1.5} strokeDasharray="2 3" connectNulls />
             </ComposedChart>
           </ResponsiveContainer>
         )}

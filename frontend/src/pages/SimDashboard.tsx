@@ -1,12 +1,16 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const C_GREEN = '#22c55e'
-const C_BLUE  = '#3b82f6'
-const C_AMBER = '#f59e0b'
-const C_GRAY  = '#6b7280'
-const C_DIM   = '#374151'
+const BATTERY_SIM_CAP_WH = 500 // Scaled capacity for visible sim dynamics (real: ~60,000 Wh)
+
+const C_GREEN  = '#22c55e'
+const C_YELLOW = '#facc15'
+const C_BLUE   = '#3b82f6'
+const C_AMBER  = '#f59e0b'  // battery warning only
+const C_RED    = '#ef4444'  // grid / Netz
+const C_GRAY   = '#6b7280'
+const C_DIM    = '#374151'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,13 +50,14 @@ function computeFlow(pvKw: number, socPct: number, meters: Meter[]): Flow {
   const bplusDemandW  = bplus.reduce((s, m)  => s + m.load_kw * 1000, 0)
   const bminusDemandW = bminus.reduce((s, m) => s + m.load_kw * 1000, 0)
   const dischargeAvailW = socPct > 20 ? 5000 : 0
+  const chargeAvailW    = socPct < 100 ? 5000 : 0   // no charging when battery full
 
   let pvToBplusW = 0, pvToGridW = 0, batChargeW = 0, batDischargeW = 0, gridToBplusW = 0
 
   if (pvW >= bplusDemandW) {
     pvToBplusW    = bplusDemandW
     const surplus = pvW - bplusDemandW
-    batChargeW    = Math.min(surplus, 5000)
+    batChargeW    = Math.min(surplus, chargeAvailW)
     pvToGridW     = Math.max(0, surplus - batChargeW)
   } else {
     pvToBplusW      = pvW
@@ -143,8 +148,8 @@ function FlowDiagram({ flow: f, socPct }: { flow: Flow; socPct: number }) {
         <style>{`@keyframes flowAnim{from{stroke-dashoffset:13}to{stroke-dashoffset:0}}`}</style>
 
         {/* ── Source boxes ── */}
-        <DeviceBox x={10} y={10} w={115} h={60} color={C_GREEN}>
-          {tw(67, 28, '☀  Photovoltaik', 10, C_GREEN)}
+        <DeviceBox x={10} y={10} w={115} h={60} color={C_YELLOW}>
+          {tw(67, 28, '☀  Photovoltaik', 10, C_YELLOW)}
           {tw(67, 48, fmtW(f.pv_w), 13, '#f9fafb')}
         </DeviceBox>
 
@@ -157,15 +162,15 @@ function FlowDiagram({ flow: f, socPct }: { flow: Flow; socPct: number }) {
             9, batMode === 'idle' ? C_GRAY : C_BLUE)}
         </DeviceBox>
 
-        <DeviceBox x={10} y={212} w={115} h={62} color={C_AMBER}>
-          {tw(67, 229, '⚡ Stromnetz', 10, C_AMBER)}
+        <DeviceBox x={10} y={212} w={115} h={62} color={C_RED}>
+          {tw(67, 229, '⚡ Stromnetz', 10, C_RED)}
           {tw(67, 245,
             f.grid_import_w > 0 ? `↓ ${fmtW(f.grid_import_w)}`
               : f.grid_export_w > 0 ? `↑ ${fmtW(f.grid_export_w)}` : 'Standby',
             12, '#f9fafb')}
           {tw(67, 261,
-            f.grid_import_w > 0 ? 'Import' : f.grid_export_w > 0 ? 'Export' : '',
-            9, C_AMBER)}
+            f.grid_import_w > 0 ? 'Import' : f.grid_export_w > 0 ? 'Export PV' : '',
+            9, f.grid_export_w > 0 ? C_AMBER : C_RED)}
         </DeviceBox>
 
         {/* ── EMS box ── */}
@@ -181,8 +186,10 @@ function FlowDiagram({ flow: f, socPct }: { flow: Flow; socPct: number }) {
           {tw(282, 166, `B+ Bedarf:  ${fmtW(f.bplus_demand_w)}`, 9, C_GRAY)}
           {tw(282, 181, `Lokal:  ${fmtW(f.local_supply_w)}`, 9, C_GREEN)}
           {tw(282, 196,
-            `Netz-Zukauf:  ${fmtW(f.grid_to_bplus_w)}`,
-            9, f.grid_to_bplus_w > 0 ? C_AMBER : C_GRAY)}
+            f.pv_to_grid_w > 0
+              ? `PV-Export:  ${fmtW(f.pv_to_grid_w)}`
+              : `Netz-Zukauf:  ${fmtW(f.grid_to_bplus_w)}`,
+            9, f.pv_to_grid_w > 0 ? C_AMBER : f.grid_to_bplus_w > 0 ? C_RED : C_GRAY)}
         </DeviceBox>
 
         {/* ── Output boxes ── */}
@@ -191,8 +198,8 @@ function FlowDiagram({ flow: f, socPct }: { flow: Flow; socPct: number }) {
           {tw(500, 48, fmtW(f.local_supply_w), 13, '#f9fafb')}
         </DeviceBox>
 
-        <DeviceBox x={428} y={92} w={144} h={54} color={f.grid_to_bplus_w > 0 ? C_AMBER : C_DIM}>
-          {tw(500, 110, 'B+  Netz-Ergänzung', 9, f.grid_to_bplus_w > 0 ? C_AMBER : C_GRAY)}
+        <DeviceBox x={428} y={92} w={144} h={54} color={f.grid_to_bplus_w > 0 ? C_RED : C_DIM}>
+          {tw(500, 110, 'B+  Netz-Ergänzung', 9, f.grid_to_bplus_w > 0 ? C_RED : C_GRAY)}
           {tw(500, 128, fmtW(f.grid_to_bplus_w), 13, '#f9fafb')}
         </DeviceBox>
 
@@ -202,22 +209,20 @@ function FlowDiagram({ flow: f, socPct }: { flow: Flow; socPct: number }) {
         </DeviceBox>
 
         {/* ── Sources → EMS ── */}
-        <FlowArrow x1={125} y1={40}  x2={192} y2={118} power={f.pv_w}                color={C_GREEN} />
-        <FlowArrow x1={125} y1={143} x2={192} y2={155} power={f.battery_discharge_w} color={C_BLUE}  />
-        <FlowArrow x1={192} y1={168} x2={125} y2={156} power={f.battery_charge_w}    color={C_BLUE}  reverse />
-        <FlowArrow x1={125} y1={237} x2={192} y2={175} power={f.grid_to_bplus_w}     color={C_AMBER} />
+        <FlowArrow x1={125} y1={40}  x2={192} y2={118} power={f.pv_w}                color={C_YELLOW} />
+        <FlowArrow x1={125} y1={143} x2={192} y2={155} power={f.battery_discharge_w} color={C_BLUE}   />
+        <FlowArrow x1={192} y1={168} x2={125} y2={156} power={f.battery_charge_w}    color={C_BLUE}   reverse />
+        <FlowArrow x1={125} y1={237} x2={192} y2={175} power={f.grid_to_bplus_w}     color={C_RED}   />
 
         {/* ── EMS → Outputs ── */}
         <FlowArrow x1={372} y1={118} x2={428} y2={39}  power={f.local_supply_w}  color={C_GREEN} />
-        <FlowArrow x1={372} y1={148} x2={428} y2={119} power={f.grid_to_bplus_w} color={C_AMBER} />
+        <FlowArrow x1={372} y1={148} x2={428} y2={119} power={f.grid_to_bplus_w} color={C_RED}   />
         <FlowArrow x1={372} y1={175} x2={428} y2={199} power={f.bminus_demand_w} color={C_GRAY}  />
 
-        {/* PV surplus export (vertical shortcut on left side) */}
+        {/* PV surplus export: EMS/Wechselrichter → Stromnetz (AC path, orange = PV→grid) */}
         {f.pv_to_grid_w > 0 && (
-          <FlowArrow x1={55} y1={70} x2={55} y2={210} power={f.pv_to_grid_w} color={C_GREEN} reverse />
+          <FlowArrow x1={192} y1={215} x2={125} y2={240} power={f.pv_to_grid_w} color={C_AMBER} reverse />
         )}
-        {f.pv_to_grid_w > 0 &&
-          tw(62, 142, `Export ${fmtW(f.pv_to_grid_w)}`, 8, C_GREEN, 'start')}
       </svg>
     </div>
   )
@@ -311,6 +316,14 @@ export default function SimDashboard() {
 
   const flow = computeFlow(pvKw, socPct, meters)
 
+  // Refs so interval callbacks always see current values without stale closures
+  const pvKwRef   = useRef(pvKw)
+  const metersRef = useRef(meters)
+  const socPctRef = useRef(socPct)
+  useEffect(() => { pvKwRef.current   = pvKw    }, [pvKw])
+  useEffect(() => { metersRef.current = meters  }, [meters])
+  useEffect(() => { socPctRef.current = socPct  }, [socPct])
+
   // Check DB availability once on mount
   useEffect(() => {
     fetch('/sim/db_status').then(r => r.json())
@@ -318,41 +331,66 @@ export default function SimDashboard() {
       .catch(() => setDbReady(false))
   }, [])
 
-  // Animation tick
+  // Animation tick + linear SOC evolution (k1 = k2 = 1/BATTERY_SIM_CAP_WH)
   useEffect(() => {
-    const id = window.setInterval(() => setTick(t => t + 1), intervalS * 1000)
+    const id = window.setInterval(() => {
+      setTick(t => t + 1)
+      setSocPct(cur => {
+        const f = computeFlow(pvKwRef.current, cur, metersRef.current)
+        const deltaWh  = (f.battery_charge_w - f.battery_discharge_w) * intervalS / 3600
+        const deltaSoc = deltaWh / BATTERY_SIM_CAP_WH * 100
+        return Math.max(0, Math.min(100, cur + deltaSoc))
+      })
+    }, intervalS * 1000)
     return () => clearInterval(id)
   }, [intervalS])
 
-  // Sync state to sim backend so its /sim/state stays current
-  const syncBackend = useCallback(() => {
-    fetch('/sim/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pv_kw: pvKw, soc_pct: socPct, meters, interval_s: intervalS }),
-    }).catch(() => {})
-  }, [pvKw, socPct, meters, intervalS])
-
-  useEffect(() => { syncBackend() }, [syncBackend])
-
-  // Push to EMS DB when sync is active (fires every intervalS seconds)
+  // Push to EMS DB when sync is active — sends full React state directly so
+  // Python backend always has the current SOC (not a stale cached value).
+  // Uses visibilitychange to restart the interval immediately when the tab
+  // becomes active again (browsers throttle setInterval to ~60s in background tabs).
   useEffect(() => {
     if (!syncEms) return
     let active = true
+    const pushMs = Math.min(intervalS * 1000, 2000)
+
     async function push() {
       try {
-        const res = await fetch('/sim/push', { method: 'POST' })
+        const res = await fetch('/sim/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pv_kw:      pvKwRef.current,
+            soc_pct:    socPctRef.current,
+            meters:     metersRef.current,
+            interval_s: intervalS,
+          }),
+        })
         const data: PushResult = await res.json()
         if (active) setLastPush(data)
       } catch {
         if (active) setLastPush({ ok: false, error: 'Verbindungsfehler' })
       }
     }
-    push() // immediate first push
-    // Push faster than meter-collector (5s) so simulation data dominates the DB
-    const pushMs = Math.min(intervalS * 1000, 2000)
-    const id = window.setInterval(push, pushMs)
-    return () => { active = false; clearInterval(id) }
+
+    push()
+    let timerId = window.setInterval(push, pushMs)
+
+    // Restart interval at full speed when tab becomes visible again
+    function onVisibility() {
+      if (!document.hidden && active) {
+        clearInterval(timerId)
+        push()
+        timerId = window.setInterval(push, pushMs)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      active = false
+      clearInterval(timerId)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [syncEms, intervalS])
 
   function reset() {
@@ -427,11 +465,16 @@ export default function SimDashboard() {
       {syncEms && (
         <div className="flex items-start gap-2 text-xs bg-green-950/20 border border-green-800 rounded-lg px-3 py-2.5 text-green-300">
           <span className="shrink-0 text-green-400 font-bold">↗</span>
-          <span>
-            Simulation schreibt alle {intervalS}s in die EMS-Datenbank.
-            Das <strong>EMS-Dashboard</strong> und die <strong>Gerätestatus</strong>-Seite zeigen jetzt deine Simulation.
-            Der <em>inverter-controller</em> berechnet automatisch neue Regelentscheidungen auf Basis der simulierten Werte.
-          </span>
+          <div className="space-y-1">
+            <span>
+              Simulation schreibt alle {intervalS}s in die EMS-Datenbank.
+              Das <strong>EMS-Dashboard</strong> und die <strong>Gerätestatus</strong>-Seite zeigen jetzt deine Simulation.
+            </span>
+            <div className="text-amber-400">
+              ⚠ Für saubere Daten: meter-collector stoppen →{' '}
+              <code className="bg-gray-900 px-1 rounded text-amber-300">docker compose stop meter-collector</code>
+            </div>
+          </div>
         </div>
       )}
 
@@ -439,8 +482,8 @@ export default function SimDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Deckungsgrad B+', value: `${flow.local_coverage_pct.toFixed(1)} %`, cls: covColor },
-          { label: 'PV-Ertrag',       value: fmtW(flow.pv_w),         cls: 'text-green-400' },
-          { label: 'Netz-Import',     value: fmtW(flow.grid_import_w), cls: 'text-amber-400' },
+          { label: 'PV-Ertrag',       value: fmtW(flow.pv_w),         cls: 'text-yellow-400' },
+          { label: 'Netz-Import',     value: fmtW(flow.grid_import_w), cls: 'text-red-400' },
           {
             label: 'Batterie',
             value: flow.battery_charge_w > 0    ? `↑ ${fmtW(flow.battery_charge_w)}`
@@ -466,12 +509,12 @@ export default function SimDashboard() {
             {/* PV */}
             <div className="space-y-1">
               <div className="flex justify-between text-xs">
-                <span className="text-green-400 font-medium">☀  Photovoltaik</span>
+                <span className="text-yellow-400 font-medium">☀  Photovoltaik</span>
                 <span className="text-gray-200 font-mono">{pvKw.toFixed(1)} kW</span>
               </div>
               <input type="range" min={0} max={20} step={0.1} value={pvKw}
                 onChange={e => setPvKw(parseFloat(e.target.value))}
-                className="w-full h-2 rounded-full accent-green-500 cursor-pointer" />
+                className="w-full h-2 rounded-full accent-yellow-400 cursor-pointer" />
               <div className="flex justify-between text-[10px] text-gray-600">
                 <span>0 kW</span><span>20 kW</span>
               </div>
@@ -480,8 +523,8 @@ export default function SimDashboard() {
             {/* Battery SOC */}
             <div className="space-y-1">
               <div className="flex justify-between text-xs">
-                <span className="text-blue-400 font-medium">⚡ Batterie-Ladezustand</span>
-                <span className="text-gray-200 font-mono">{socPct.toFixed(0)} %</span>
+                <span className="text-blue-400 font-medium">⚡ Batterie SOC</span>
+                <span className="text-gray-200 font-mono">{socPct.toFixed(1)} %</span>
               </div>
               <input type="range" min={0} max={100} step={1} value={socPct}
                 onChange={e => setSocPct(parseFloat(e.target.value))}
@@ -496,8 +539,15 @@ export default function SimDashboard() {
                 />
               </div>
               <div className="flex justify-between text-[10px] text-gray-500">
-                <span>{(socPct * 0.6).toFixed(1)} kWh gespeichert</span>
-                {socPct <= 20 && <span className="text-red-400">Entladen gesperrt</span>}
+                <span className="text-gray-600">Schieber = Startwert / Reset</span>
+                {socPct <= 20
+                  ? <span className="text-red-400">Entladen gesperrt</span>
+                  : flow.battery_charge_w > 0
+                    ? <span className="text-blue-400">↑ lädt</span>
+                    : flow.battery_discharge_w > 0
+                      ? <span className="text-amber-400">↓ entlädt</span>
+                      : <span className="text-gray-600">Standby</span>
+                }
               </div>
             </div>
 
@@ -548,10 +598,11 @@ export default function SimDashboard() {
         <p className="text-xs font-medium text-gray-400 mb-3">Legende Energiefluss</p>
         <div className="flex flex-wrap gap-4 text-xs text-gray-400">
           {[
-            { color: C_GREEN, label: 'Lokale Energie (PV → B+ Teilnehmer)' },
-            { color: C_BLUE,  label: 'Batterie (Laden ↑ / Entladen ↓)' },
-            { color: C_AMBER, label: 'Stromnetz (Import / Export)' },
-            { color: C_GRAY,  label: 'B– Teilnehmer (immer Netz)' },
+            { color: C_YELLOW, label: 'Photovoltaik' },
+            { color: C_GREEN,  label: 'Lokale Versorgung B+' },
+            { color: C_BLUE,   label: 'Batterie (Laden ↑ / Entladen ↓)' },
+            { color: C_RED,    label: 'Stromnetz (Import / Export)' },
+            { color: C_GRAY,   label: 'B– Teilnehmer (immer Netz)' },
           ].map(({ color, label }) => (
             <div key={label} className="flex items-center gap-1.5">
               <div className="w-6 h-1.5 rounded-full" style={{ background: color }} />

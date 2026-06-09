@@ -1,9 +1,10 @@
-export function Tile({ label, value, unit, color = 'text-white', sub }: {
+export function Tile({ label, value, unit, color = 'text-white', sub, subColor = 'text-gray-500' }: {
   label: string
   value: string | number | null | undefined
   unit?: string
   color?: string
   sub?: string
+  subColor?: string
 }) {
   return (
     <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
@@ -12,7 +13,7 @@ export function Tile({ label, value, unit, color = 'text-white', sub }: {
         {value ?? '—'}
         {unit && <span className="text-sm font-normal text-gray-400 ml-1">{unit}</span>}
       </p>
-      {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
+      {sub && <p className={`text-xs mt-1 ${subColor}`}>{sub}</p>}
     </div>
   )
 }
