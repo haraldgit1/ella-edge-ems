@@ -98,7 +98,7 @@ export default function DashboardOperator() {
       {/* Live Tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Tile
-          label="B+ Verbrauch"
+          label="B+ und H+ Verbrauch"
           value={ps ? Math.round(ps.bplus_power_w) : null}
           unit="W"
           color="text-green-400"
@@ -137,7 +137,7 @@ export default function DashboardOperator() {
           sub={gridExportW > 0 ? 'PV-Überschuss → Netz' : 'keine Einspeisung'}
         />
         <Tile
-          label="B- Verbrauch"
+          label="B- und H- Verbrauch"
           value={ps ? Math.round(ps.bminus_power_w) : null}
           unit="W"
           color="text-gray-400"

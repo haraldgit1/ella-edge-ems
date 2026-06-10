@@ -21,7 +21,8 @@ INSERT OR IGNORE INTO meters(id, site_id, apartment_id, serial_number, protocol)
     ('meter-03', 'site-demo-01', 'apt-03', 'SIM-003', 'SIMULATION'),
     ('meter-04', 'site-demo-01', 'apt-04', 'SIM-004', 'SIMULATION'),
     ('meter-05', 'site-demo-01', 'apt-05', 'SIM-005', 'SIMULATION'),
-    ('meter-06', 'site-demo-01', 'apt-06', 'SIM-006', 'SIMULATION');
+    ('meter-06', 'site-demo-01', 'apt-06', 'SIM-006', 'SIMULATION'),
+    ('meter-07', 'site-demo-01', NULL,     'SIM-007', 'SIMULATION');  -- H+ Wärmepumpe (Hausverwaltung)
 
 INSERT OR IGNORE INTO devices(id, site_id, device_type, name, protocol, max_power_w) VALUES
     ('dev-inverter-01', 'site-demo-01', 'INVERTER', 'Wechselrichter SIM', 'SIMULATION', 10000),

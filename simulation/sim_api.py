@@ -11,7 +11,7 @@ import uvicorn
 ELLA_DB_PATH = os.environ.get('ELLA_DB_PATH', '')  # empty = no DB sync available
 SITE_ID      = 'site-demo-01'
 # Simulation meter index → real DB meter ID (must match seed order)
-DB_METER_IDS = ['meter-01', 'meter-02', 'meter-03', 'meter-04', 'meter-05', 'meter-06']
+DB_METER_IDS = ['meter-01', 'meter-02', 'meter-03', 'meter-04', 'meter-05', 'meter-06', 'meter-07']
 
 app = FastAPI(title="Ella Simulation API")
 app.add_middleware(
