@@ -1,4 +1,4 @@
-const BASE = '/api'
+const BASE = '/ella_ems/api'
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`)
@@ -36,5 +36,5 @@ export const api = {
   reports:                () => get<any[]>('/reports'),
   reportGenerate:         (body: object) => post<any>('/reports/generate', body),
   reportStatus:           (id: string) => get<any>(`/reports/${id}/status`),
-  reportDownloadUrl:      (id: string) => `/api/reports/${id}/download`,
+  reportDownloadUrl:      (id: string) => `/ella_ems/api/reports/${id}/download`,
 }

@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS meters (
     site_id         TEXT NOT NULL REFERENCES sites(id),
     apartment_id    TEXT REFERENCES apartments(id),
     serial_number   TEXT,
+    cid             TEXT UNIQUE,  -- SmartMeter hardware custom-ID (maps HW device → meter)
     meter_type      TEXT NOT NULL DEFAULT 'SMART_METER',
     protocol        TEXT NOT NULL DEFAULT 'SIMULATION',  -- SIMULATION | MODBUS_TCP | MODBUS_RTU
     address         TEXT,   -- IP:port or serial device

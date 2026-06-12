@@ -18,11 +18,17 @@ const RANGES = [
   { s:  86400, label: '24 Std' },
 ]
 
+import { utcToDate } from '../utils/time'
+
 function fmtTick(ts: string, rangeS: number): string {
   if (!ts) return ''
-  if (rangeS >= 86400) return ts.slice(8, 10) + '. ' + ts.slice(11, 16)
-  if (rangeS >= 3600)  return ts.slice(11, 16)
-  return ts.slice(11, 19)
+  const d = utcToDate(ts)
+  const H = String(d.getHours()).padStart(2, '0')
+  const M = String(d.getMinutes()).padStart(2, '0')
+  const S = String(d.getSeconds()).padStart(2, '0')
+  if (rangeS >= 86400) return `${String(d.getDate()).padStart(2, '0')}. ${H}:${M}`
+  if (rangeS >= 3600)  return `${H}:${M}`
+  return `${H}:${M}:${S}`
 }
 
 export default function DashboardOperator() {
@@ -165,7 +171,7 @@ export default function DashboardOperator() {
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex flex-wrap gap-6 text-sm">
           <div>
             <span className="text-gray-500 text-xs block">Letzte Regelentscheidung</span>
-            <span className="font-mono text-xs text-gray-300">{dec.timestamp_utc?.slice(0, 19).replace('T', ' ')}</span>
+            <span className="font-mono text-xs text-gray-300">{dec.timestamp_utc ? utcToDate(dec.timestamp_utc).toLocaleString('de-AT') : '—'}</span>
           </div>
           <div>
             <span className="text-gray-500 text-xs block">Status</span>

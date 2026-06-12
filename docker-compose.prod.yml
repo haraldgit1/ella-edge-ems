@@ -1,0 +1,27 @@
+# Production overlay for www.sailersoft.com
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# What this does:
+#   - Disables ella-nginx (the existing sailersoft nginx takes over routing)
+#   - Attaches backend-api and simulation to the external "webnet" network
+#     so the sailersoft nginx container can proxy to them by container name
+
+services:
+  nginx:
+    profiles:
+      - local_only   # prevents ella-nginx from starting in production
+
+  backend-api:
+    networks:
+      - default
+      - webnet
+
+  simulation:
+    networks:
+      - default
+      - webnet
+
+networks:
+  webnet:
+    external: true
+    name: webnet

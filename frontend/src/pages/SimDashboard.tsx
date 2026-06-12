@@ -18,6 +18,7 @@ const C_DIM    = '#374151'
 interface Meter {
   id: string
   name: string
+  cid?: string          // SmartMeter hardware custom-ID (required for hw_send)
   load_kw: number
   is_bplus: boolean
   ac_on?: boolean       // Klimaanlage: +1 kW
@@ -244,12 +245,14 @@ function FlowDiagram({ flow: f, socPct, hplusKw }: {
 // ── Meter Card ────────────────────────────────────────────────────────────────
 
 function MeterCard({
-  meter, flowW, localW, onChange,
+  meter, flowW, localW, onChange, hwSend, onHwSendToggle,
 }: {
   meter: Meter
   flowW: number
   localW: number
   onChange: (m: Meter) => void
+  hwSend: boolean
+  onHwSendToggle: () => void
 }) {
   const gridW  = Math.max(0, flowW - localW)
   const pct    = flowW > 0 ? localW / flowW : 0
@@ -330,6 +333,19 @@ function MeterCard({
       ) : (
         <div className="text-[10px] text-red-400">{fmtW(flowW)} vom Netz</div>
       )}
+
+      {/* Hardware send toggle */}
+      <button
+        onClick={onHwSendToggle}
+        title={`CID ${meter.cid} — alle 10 s an /ella_ems/smartmeter`}
+        className={`w-full text-[10px] py-1 rounded-lg border font-medium transition-colors ${
+          hwSend
+            ? 'bg-orange-900/40 text-orange-300 border-orange-700 animate-pulse'
+            : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500 hover:text-gray-300'
+        }`}
+      >
+        {hwSend ? `HW aktiv  CID ${meter.cid}` : 'Hardware senden'}
+      </button>
     </div>
   )
 }
@@ -337,12 +353,12 @@ function MeterCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const DEFAULT_METERS: Meter[] = [
-  { id: 'm1', name: 'Familie Müller',  load_kw: 1.2, is_bplus: true  },
-  { id: 'm2', name: 'Hr. Schmidt',     load_kw: 0.8, is_bplus: true  },
-  { id: 'm3', name: 'Fr. Berger',      load_kw: 1.5, is_bplus: true  },
-  { id: 'm4', name: 'Familie Wagner',  load_kw: 2.0, is_bplus: true  },
-  { id: 'm5', name: 'Hr. Huber',       load_kw: 0.6, is_bplus: false },
-  { id: 'm6', name: 'Fr. Novak',       load_kw: 1.0, is_bplus: false },
+  { id: 'm1', name: 'Familie Müller',  cid: '1001', load_kw: 1.2, is_bplus: true  },
+  { id: 'm2', name: 'Hr. Schmidt',     cid: '1002', load_kw: 0.8, is_bplus: true  },
+  { id: 'm3', name: 'Fr. Berger',      cid: '1003', load_kw: 1.5, is_bplus: true  },
+  { id: 'm4', name: 'Familie Wagner',  cid: '1004', load_kw: 2.0, is_bplus: true  },
+  { id: 'm5', name: 'Hr. Huber',       cid: '1005', load_kw: 0.6, is_bplus: false },
+  { id: 'm6', name: 'Fr. Novak',       cid: '1006', load_kw: 1.0, is_bplus: false },
 ]
 
 interface PushResult { ok: boolean; ts?: string; error?: string }
@@ -357,6 +373,7 @@ export default function SimDashboard() {
   const [syncEms,    setSyncEms]    = useState(false)
   const [dbReady,    setDbReady]    = useState<boolean | null>(null)
   const [lastPush,   setLastPush]   = useState<PushResult | null>(null)
+  const [hwSend,     setHwSend]     = useState<Set<string>>(new Set())
 
   const hplusKw = hplusUnits * 1.5
 
@@ -377,9 +394,43 @@ export default function SimDashboard() {
   useEffect(() => { socPctRef.current  = socPct  }, [socPct])
   useEffect(() => { hplusKwRef.current = hplusKw }, [hplusKw])
 
+  // Hardware push: 10s interval per meter with hw_send active
+  const hwSendKey = [...hwSend].sort().join(',')
+  useEffect(() => {
+    if (hwSend.size === 0) return
+    const ids: ReturnType<typeof window.setInterval>[] = []
+
+    for (const mid of hwSend) {
+      const meter = metersRef.current.find(m => m.id === mid)
+      if (!meter) continue
+      const cid = meter.cid
+
+      const push = () => {
+        const cur = metersRef.current.find(m => m.id === mid)
+        if (!cur) return
+        const now = new Date()
+        fetch('/ella_ems/smartmeter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            CID:   cid,
+            Pact:  effectiveKw(cur).toFixed(3),
+            LDT:   now.toISOString(),
+            LDTsm: '',
+          }),
+        }).catch(() => {})
+      }
+
+      push()
+      ids.push(window.setInterval(push, 10000))
+    }
+
+    return () => ids.forEach(clearInterval)
+  }, [hwSendKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Check DB availability once on mount
   useEffect(() => {
-    fetch('/sim/db_status').then(r => r.json())
+    fetch('/ella_ems/sim/db_status').then(r => r.json())
       .then(d => setDbReady(d.available))
       .catch(() => setDbReady(false))
   }, [])
@@ -410,7 +461,7 @@ export default function SimDashboard() {
 
     async function push() {
       try {
-        const res = await fetch('/sim/push', {
+        const res = await fetch('/ella_ems/sim/push', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -447,9 +498,23 @@ export default function SimDashboard() {
     }
   }, [syncEms, intervalS])
 
+  function toggleHwSend(meterId: string) {
+    setHwSend(prev => {
+      const next = new Set(prev)
+      if (next.has(meterId)) {
+        next.delete(meterId)
+      } else {
+        next.add(meterId)
+        setSyncEms(false) // hardware takes over — disable software sync
+      }
+      return next
+    })
+  }
+
   function reset() {
     setPvKw(5.0); setSocPct(60.0); setMeters(DEFAULT_METERS)
     setHplusUnits(0); setIntervalS(2); setSyncEms(false); setLastPush(null)
+    setHwSend(new Set())
   }
 
   // Per-meter local allocation (proportional to effective B+ load share, including H+)
@@ -460,7 +525,7 @@ export default function SimDashboard() {
     return Math.min(effectiveKw(m) * 1000, share * flow.local_supply_w)
   }
 
-  const hplusMeter: Meter = { id: 'm7', name: 'H+ Wärmepumpe', load_kw: hplusKw, is_bplus: true }
+  const hplusMeter: Meter = { id: 'm7', name: 'H+ Wärmepumpe', cid: '1007', load_kw: hplusKw, is_bplus: true }
   const hplusLocalW = meterLocalW(hplusMeter)
   const hplusGridW  = Math.max(0, hplusKw * 1000 - hplusLocalW)
 
@@ -488,7 +553,7 @@ export default function SimDashboard() {
             </div>
             {lastPush && (
               <div className={lastPush.ok ? 'text-green-400' : 'text-red-400'}>
-                {lastPush.ok ? `✓ Push ${lastPush.ts?.slice(11, 19) ?? ''}` : `✗ ${lastPush.error}`}
+                {lastPush.ok ? `✓ Push ${lastPush.ts ? new Date(lastPush.ts).toLocaleTimeString('de-AT') : ''}` : `✗ ${lastPush.error}`}
               </div>
             )}
           </div>
@@ -513,6 +578,24 @@ export default function SimDashboard() {
           Zurücksetzen
         </button>
       </div>
+
+      {/* HW send hint */}
+      {hwSend.size > 0 && (
+        <div className="flex items-start gap-2 text-xs bg-orange-950/20 border border-orange-800 rounded-lg px-3 py-2.5 text-orange-300">
+          <span className="shrink-0 font-bold">📡</span>
+          <div className="space-y-1">
+            <div>
+              Hardware-Push aktiv für{' '}
+              <strong>{[...hwSend].map(mid => meters.find(m => m.id === mid)?.name ?? mid).join(', ')}</strong>
+              {' '}— sendet alle 10 s an <code className="bg-gray-900 px-1 rounded text-orange-200">/ella_ems/smartmeter</code>.
+            </div>
+            <div className="text-amber-400">
+              ⚠ Für saubere Messwerte: meter-collector stoppen →{' '}
+              <code className="bg-gray-900 px-1 rounded text-amber-300">docker compose stop meter-collector</code>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sync hint */}
       {syncEms && (
@@ -639,6 +722,8 @@ export default function SimDashboard() {
               flowW={effectiveKw(m) * 1000}
               localW={meterLocalW(m)}
               onChange={updated => setMeters(prev => prev.map((x, j) => j === i ? updated : x))}
+              hwSend={hwSend.has(m.id)}
+              onHwSendToggle={() => toggleHwSend(m.id)}
             />
           ))}
         </div>

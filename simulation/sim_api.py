@@ -52,6 +52,13 @@ class SimUpdate(BaseModel):
     interval_s: Optional[int]             = None
 
 
+class SmartMeterReading(BaseModel):
+    LDT:   str            # "2026-06-12T09:31:33+02:00" — timestamp with timezone
+    LDTsm: Optional[str]  # direct from meter, may be empty
+    CID:   str            # custom ID → maps to meter.cid in DB
+    Pact:  str            # active power in kW (string from device)
+
+
 def compute_flow(s: dict) -> dict:
     pv_w = s["pv_kw"] * 1000.0
     soc  = s["soc_pct"]
@@ -199,6 +206,100 @@ def push_to_ems(body: Optional[SimUpdate] = Body(None)):
         db.close()
         print(f"[SIM_PUSH] {ts}  B+={f['bplus_demand_w']:.0f}W  PV={f['pv_w']:.0f}W  SOC={s['soc_pct']:.0f}%")
         return {"ok": True, "ts": ts, "flow": f}
+
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/smartmeter")
+def smartmeter_push(reading: SmartMeterReading):
+    """
+    Fire-and-forget SmartMeter hardware push.
+    Maps CID → meter_id via DB, writes one measurement row,
+    then refreshes power_states from latest readings of all meters.
+    """
+    if not ELLA_DB_PATH or not os.path.exists(ELLA_DB_PATH):
+        return {"ok": False, "error": "EMS database not accessible"}
+
+    try:
+        pact_kw = float(reading.Pact)
+    except (ValueError, TypeError):
+        return {"ok": False, "error": f"Ungültiger Pact-Wert: {reading.Pact!r}"}
+
+    try:
+        db = sqlite3.connect(ELLA_DB_PATH, timeout=10)
+        db.execute('PRAGMA journal_mode=WAL')
+        db.execute('PRAGMA foreign_keys=ON')
+
+        # Resolve CID → meter_id
+        row = db.execute(
+            "SELECT id FROM meters WHERE cid = ? AND is_active = 1", (reading.CID,)
+        ).fetchone()
+        if not row:
+            db.close()
+            return {"ok": False, "error": f"Unbekannte CID: {reading.CID}"}
+        meter_id = row[0]
+
+        # Parse LDT timestamp → UTC; fall back to now
+        try:
+            ts = datetime.fromisoformat(reading.LDT).astimezone(timezone.utc)
+            ts_str = ts.isoformat(timespec='seconds').replace('+00:00', 'Z')
+        except Exception:
+            ts_str = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+
+        # Write measurement for this one meter
+        db.execute(
+            "INSERT INTO measurements "
+            "  (site_id, meter_id, timestamp_utc, active_power_w, quality_flag, source) "
+            "VALUES (?, ?, ?, ?, 'OK', 'HW_PUSH')",
+            (SITE_ID, meter_id, ts_str, round(pact_kw * 1000, 2)),
+        )
+
+        # Recompute power_states from latest measurement per active meter
+        meter_rows = db.execute("""
+            SELECT m.id, p.participant_status,
+                   (SELECT active_power_w FROM measurements
+                    WHERE meter_id = m.id ORDER BY timestamp_utc DESC LIMIT 1) AS latest_w
+            FROM meters m
+            LEFT JOIN participants p ON p.meter_id = m.id AND p.is_active = 1
+            WHERE m.site_id = ? AND m.is_active = 1
+        """, (SITE_ID,)).fetchall()
+
+        bplus_w = bminus_w = 0.0
+        valid_count = invalid_count = 0
+        for _mid, status, w in meter_rows:
+            if w is None:
+                invalid_count += 1
+            else:
+                valid_count += 1
+                if status == 'BPLUS':
+                    bplus_w += w
+                else:
+                    bminus_w += w
+
+        # Carry forward pv_power_w and battery_soc_pct from last power_states row
+        last_ps = db.execute(
+            "SELECT pv_power_w, battery_soc_pct FROM power_states WHERE site_id = ? "
+            "ORDER BY timestamp_utc DESC LIMIT 1", (SITE_ID,)
+        ).fetchone()
+        pv_w = last_ps[0] if last_ps else None
+        soc  = last_ps[1] if last_ps else None
+
+        now_str = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+        db.execute(
+            "INSERT INTO power_states "
+            "  (site_id, timestamp_utc, bplus_power_w, bminus_power_w, total_power_w, "
+            "   pv_power_w, battery_soc_pct, valid_meter_count, invalid_meter_count) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (SITE_ID, now_str,
+             round(bplus_w, 2), round(bminus_w, 2), round(bplus_w + bminus_w, 2),
+             pv_w, soc, valid_count, invalid_count),
+        )
+
+        db.commit()
+        db.close()
+        print(f"[HW_PUSH] {ts_str}  CID={reading.CID}  meter={meter_id}  {pact_kw:.3f} kW")
+        return {"ok": True, "meter_id": meter_id, "kw": round(pact_kw, 3), "ts": ts_str}
 
     except Exception as e:
         return {"ok": False, "error": str(e)}

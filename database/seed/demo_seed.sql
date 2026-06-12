@@ -15,14 +15,23 @@ INSERT OR IGNORE INTO apartments(id, building_id, site_id, unit_label, floor) VA
     ('apt-05', 'bld-01', 'site-demo-01', 'Top 5', 2),
     ('apt-06', 'bld-01', 'site-demo-01', 'Top 6', 2);
 
-INSERT OR IGNORE INTO meters(id, site_id, apartment_id, serial_number, protocol) VALUES
-    ('meter-01', 'site-demo-01', 'apt-01', 'SIM-001', 'SIMULATION'),
-    ('meter-02', 'site-demo-01', 'apt-02', 'SIM-002', 'SIMULATION'),
-    ('meter-03', 'site-demo-01', 'apt-03', 'SIM-003', 'SIMULATION'),
-    ('meter-04', 'site-demo-01', 'apt-04', 'SIM-004', 'SIMULATION'),
-    ('meter-05', 'site-demo-01', 'apt-05', 'SIM-005', 'SIMULATION'),
-    ('meter-06', 'site-demo-01', 'apt-06', 'SIM-006', 'SIMULATION'),
-    ('meter-07', 'site-demo-01', NULL,     'SIM-007', 'SIMULATION');  -- H+ Wärmepumpe (Hausverwaltung)
+INSERT OR IGNORE INTO meters(id, site_id, apartment_id, serial_number, cid, protocol) VALUES
+    ('meter-01', 'site-demo-01', 'apt-01', 'SIM-001', '1001', 'SIMULATION'),
+    ('meter-02', 'site-demo-01', 'apt-02', 'SIM-002', '1002', 'SIMULATION'),
+    ('meter-03', 'site-demo-01', 'apt-03', 'SIM-003', '1003', 'SIMULATION'),
+    ('meter-04', 'site-demo-01', 'apt-04', 'SIM-004', '1004', 'SIMULATION'),
+    ('meter-05', 'site-demo-01', 'apt-05', 'SIM-005', '1005', 'SIMULATION'),
+    ('meter-06', 'site-demo-01', 'apt-06', 'SIM-006', '1006', 'SIMULATION'),
+    ('meter-07', 'site-demo-01', NULL,     'SIM-007', '1007', 'SIMULATION');  -- H+ Wärmepumpe
+
+-- Set CIDs on existing rows (idempotent: only sets if still NULL)
+UPDATE meters SET cid = '1001' WHERE id = 'meter-01' AND cid IS NULL;
+UPDATE meters SET cid = '1002' WHERE id = 'meter-02' AND cid IS NULL;
+UPDATE meters SET cid = '1003' WHERE id = 'meter-03' AND cid IS NULL;
+UPDATE meters SET cid = '1004' WHERE id = 'meter-04' AND cid IS NULL;
+UPDATE meters SET cid = '1005' WHERE id = 'meter-05' AND cid IS NULL;
+UPDATE meters SET cid = '1006' WHERE id = 'meter-06' AND cid IS NULL;
+UPDATE meters SET cid = '1007' WHERE id = 'meter-07' AND cid IS NULL;
 
 INSERT OR IGNORE INTO devices(id, site_id, device_type, name, protocol, max_power_w) VALUES
     ('dev-inverter-01', 'site-demo-01', 'INVERTER', 'Wechselrichter SIM', 'SIMULATION', 10000),

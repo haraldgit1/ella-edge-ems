@@ -29,6 +29,18 @@ export async function initDatabase(): Promise<void> {
     console.warn('Schema file not found at', SCHEMA_PATH, '–', String(e).split('\n')[0])
   }
 
+  // Migration: add cid column to meters for existing DBs
+  // SQLite does not allow UNIQUE on ALTER TABLE ADD COLUMN — use a separate index
+  try {
+    db.run('ALTER TABLE meters ADD COLUMN cid TEXT')
+    db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_meters_cid ON meters(cid) WHERE cid IS NOT NULL')
+    console.log('Migration: added cid column to meters')
+  } catch { /* column already exists — expected on most starts */ }
+  // Ensure index exists even when column was already added previously
+  try {
+    db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_meters_cid ON meters(cid) WHERE cid IS NOT NULL')
+  } catch { /* ignore */ }
+
   try {
     const seed = readFileSync(SEED_PATH, 'utf-8')
     db.exec(seed)

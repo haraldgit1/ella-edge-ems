@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
+import { fmtLocalDateTime, fmtLocalTime } from '../utils/time'
 
 function DetailModal({ row, onClose }: { row: any; onClose: () => void }) {
   const fields: [string, string | number | null][] = [
-    ['Zeitpunkt',            row.timestamp_utc?.slice(0, 19).replace('T', ' ')],
+    ['Zeitpunkt',            fmtLocalDateTime(row.timestamp_utc)],
     ['B+ Verbrauch',         `${Math.round(row.bplus_power_w ?? 0)} W`],
     ['B- Verbrauch',         `${Math.round(row.bminus_power_w ?? 0)} W`],
     ['PV-Leistung',          row.pv_power_w != null ? `${Math.round(row.pv_power_w)} W` : '—'],
@@ -70,7 +71,7 @@ export default function OpsRules() {
         >
           <div>
             <span className="text-gray-500 text-xs block mb-0.5">Letzter Zyklus</span>
-            <span className="font-mono text-xs">{latest.timestamp_utc?.slice(11, 19)}</span>
+            <span className="font-mono text-xs">{fmtLocalTime(latest.timestamp_utc)}</span>
           </div>
           <div>
             <span className="text-gray-500 text-xs block mb-0.5">B+ Verbrauch</span>
@@ -111,7 +112,7 @@ export default function OpsRules() {
                 className="border-t border-gray-800 hover:bg-gray-900/80 cursor-pointer"
                 onClick={() => setSelected(r)}
               >
-                <td className="px-3 py-2 font-mono">{r.timestamp_utc?.slice(11, 19)}</td>
+                <td className="px-3 py-2 font-mono">{fmtLocalTime(r.timestamp_utc)}</td>
                 <td className="px-3 py-2 text-green-400 font-medium">{Math.round(r.bplus_power_w)}</td>
                 <td className="px-3 py-2 text-yellow-400">{Math.round(r.pv_power_w ?? 0)}</td>
                 <td className="px-3 py-2">{r.battery_soc_percent?.toFixed(1) ?? '—'}</td>
