@@ -1,178 +1,218 @@
-# Ella Edge EMS — Claude Code Project Specification
+# Ella Edge EMS — Claude Code Arbeitsanleitung
 
-## Project Purpose
+## Projektzweck
 
-Ella Edge EMS is a **locally-operated Energy Management System** for Austrian multi-party residential buildings (*Mehrparteienwohnanlagen*) with shared PV systems and battery storage. It runs on a DIN-Rail PC in the building's control cabinet — no cloud dependency, no external services.
+Ella Edge EMS ist ein **lokal betriebenes Energiemanagementsystem** für österreichische Mehrparteienwohnanlagen mit gemeinsamer PV-Anlage und Batteriespeicher. Das System läuft auf einem DIN-Rail-PC im Schaltschrank — ohne Cloud-Abhängigkeit.
 
-The core business problem: residents who join as **B+ participants** receive allocated locally-produced solar/battery energy at a lower tariff. Non-participants (**B-**) stay on the grid. The EMS handles real-time inverter control, 15-minute settlement intervals (Austrian regulatory requirement), billing data, and resident-facing reporting.
+Kernproblem: Bewohner, die als **B+** beitreten, beziehen zugeteilte lokal erzeugte Solar-/Batterieenergie zu einem günstigeren Tarif. Nicht-Teilnehmer (**B–**) bleiben am Netz. **H+** bezeichnet die Hausverwaltung (z. B. Wärmepumpe), die ebenfalls lokal versorgt wird.
 
----
-
-## Architecture
-
-```
-nginx (:80)
-  ├── /           → frontend/dist   (React SPA, static)
-  ├── /api/       → backend-api:3000  (Bun + Elysia, TypeScript)
-  └── /sim/       → simulation:8080   (FastAPI, Python)
-
-SQLite (WAL mode) ← shared by all services
-  ├── backend-api     (reads + writes via bun:sqlite)
-  ├── meter-collector     (Python, writes measurements + power_states)
-  ├── inverter-controller (Python, reads power_states, writes control_decisions)
-  ├── settlement-worker   (Python, writes settlement_intervals + allocations)
-  ├── reporting-worker    (Python, reads all, writes PDF/CSV/ZIP to ./reports/)
-  └── simulation          (Python/FastAPI, optional writes via /sim/push)
-```
-
-All services share one SQLite file at `./data/ella-edge.db` (volume-mounted into each container). WAL mode allows concurrent reads with single writer. All services set `PRAGMA journal_mode=WAL` and `busy_timeout`.
+Das System wird unter dem Sub-Pfad `/ella_ems/` betrieben (nicht `/`), damit es auf dem Produktionsserver neben bestehenden Services (ORDS, Oracle) koexistiert. Unter `/` liegt eine einfache Landing Page.
 
 ---
 
-## Tech Stack
+## Architektur
 
-| Layer | Technology |
-|-------|-----------|
+### URL-Routing (lokal und Produktion)
+
+```
+http://localhost/                     → Landing Page (nginx, statisch)
+http://localhost/ella_ems/            → React SPA (frontend/dist, bind-mount)
+http://localhost/ella_ems/api/        → backend-api:3000  (Prefix /ella_ems wird gestripped)
+http://localhost/ella_ems/sim/        → simulation:8080   (Prefix /ella_ems wird gestripped)
+http://localhost/ella_ems/smartmeter  → simulation:8080   (SmartMeter HW-Push)
+```
+
+### Container-Topologie
+
+```
+nginx (:80/:443)
+  ├── /                     → /usr/share/nginx/landing  (nginx/html/)
+  ├── /ella_ems/api/        → rewrite → backend-api:3000
+  ├── /ella_ems/sim/        → rewrite → simulation:8080
+  ├── /ella_ems/smartmeter  → rewrite → simulation:8080
+  └── /ella_ems/            → alias   → /usr/share/nginx/ella_ems/  (frontend/dist)
+
+SQLite (WAL mode) ← geteilt von allen Services
+  ├── backend-api           (Bun, liest+schreibt)
+  ├── meter-collector       (Python, schreibt measurements + power_states)  [Profil: collector]
+  ├── inverter-controller   (Python, liest power_states, schreibt control_decisions)
+  ├── settlement-worker     (Python, schreibt settlement_intervals + allocations)
+  ├── reporting-worker      (Python, liest alles, schreibt PDFs/CSVs/ZIPs)
+  └── simulation            (Python/FastAPI, schreibt via /sim/push und /smartmeter)
+```
+
+### Netzwerk-Topologie
+
+**Lokal (Entwicklung):** Die `ella-nginx` übernimmt Routing. Alle Container im `ella_ems_default`-Netzwerk.
+
+**Produktion (www.sailersoft.com):** Die `ella-nginx` läuft **nicht** (Profil `local_only`). Der bestehende sailersoft-nginx-Container übernimmt Routing. `backend-api` und `simulation` sind über das externe `webnet`-Netzwerk für den sailersoft-nginx erreichbar. Konfiguriert via `docker-compose.prod.yml`.
+
+---
+
+## Tech-Stack
+
+| Layer | Technologie |
+|-------|-------------|
 | Backend API | Bun 1.2 + Elysia (TypeScript) |
 | Frontend | React 18 + Vite 5 + Tailwind CSS 3 + Recharts |
-| Python services | Python 3.12-slim, no external frameworks (except FastAPI for simulation) |
-| Database | SQLite with WAL mode — shared between Bun and Python |
-| PDF generation | fpdf2 2.8.x with DejaVu Unicode fonts (`fonts-dejavu-core`) |
-| Container runtime | Docker Compose |
-| Reverse proxy | nginx:stable-alpine |
+| Python-Services | Python 3.12-slim, FastAPI (nur Simulation) |
+| Datenbank | SQLite mit WAL-Modus, geteilt zwischen Bun und Python |
+| PDF-Generierung | fpdf2 2.8.x mit DejaVu-Unicode-Fonts |
+| Container | Docker Compose |
+| Reverse Proxy | nginx:stable-alpine |
 | Simulation API | FastAPI + uvicorn |
 
 ---
 
-## Repository Structure
+## Repository-Struktur
 
 ```
 ella_ems/
-├── CLAUDE.md                  ← this file
-├── docker-compose.yml         ← all services, volumes, profiles
-├── .env                       ← secrets (gitignored); see .env.example pattern below
-├── nginx/nginx.conf           ← reverse proxy, SPA fallback, /api/ + /sim/ proxy
+├── CLAUDE.md                        ← diese Datei (Claude Code Anleitung)
+├── docs/SPEC.md                     ← Projekt-Spezifikation (Business + Technik)
+├── docker-compose.yml               ← Basis-Compose (alle Services)
+├── docker-compose.prod.yml          ← Prod-Overlay: ella-nginx deaktiviert, webnet aktiviert
+├── .env                             ← Secrets (gitignored)
+├── nginx/
+│   ├── nginx.conf                   ← Lokaler nginx (SPA alias, API-Proxy, Landing)
+│   ├── html/index.html              ← Landing Page (Hello World)
+│   └── sailersoft-location-blocks.conf  ← Referenz für Production-nginx-Config
 ├── database/
-│   ├── schema.sql             ← SQLite schema (idempotent, CREATE IF NOT EXISTS)
-│   └── seed/demo_seed.sql     ← demo data: 1 site, 6 apts, 4 B+/2 B-, tariffs, admin user
-├── backend-api/               ← Bun + Elysia REST API
-│   ├── Dockerfile             ← oven/bun:1.2-alpine, 3-stage (deps/runner)
+│   ├── schema.sql                   ← SQLite-Schema (idempotent, CREATE IF NOT EXISTS)
+│   └── seed/demo_seed.sql           ← Demo-Daten: 1 Site, 7 Meter, 4 B+/2 B-/1 H+
+├── backend-api/
 │   └── src/
-│       ├── main.ts            ← app entry, registers all routes
-│       ├── db/init.ts         ← getDb() singleton, applies schema + seed on startup
-│       └── routes/
-│           ├── health.ts      ← GET /api/health
-│           ├── auth.ts        ← POST /api/auth/login (stub — JWT not yet implemented)
-│           ├── dashboard.ts   ← GET /api/dashboard/operator|resident/:id|devices
-│           ├── meters.ts      ← GET /api/meters/status + /:id/latest
-│           ├── participants.ts
-│           ├── alarms.ts      ← GET/POST ack/close
-│           ├── controlDecisions.ts
-│           ├── settlement.ts  ← intervals, summary, plausibility, approve
-│           └── reports.ts     ← generate, list, download
-├── frontend/                  ← React SPA
-│   ├── Dockerfile             ← node:22-alpine builder → dist; nginx runner (unused in compose)
-│   ├── vite.config.ts         ← /api proxy → localhost:3000 for local dev
+│       ├── main.ts                  ← App-Einstieg, registriert alle Routen
+│       ├── db/init.ts               ← getDb() Singleton, Schema + Seed + Migrations
+│       └── routes/                  ← Elysia-Plugins je Ressource
+├── frontend/
+│   ├── vite.config.ts               ← base: '/ella_ems/', Dev-Proxy
 │   └── src/
-│       ├── api/client.ts      ← all fetch calls — update here when adding API endpoints
-│       ├── hooks/usePolling.ts ← generic polling hook used everywhere (5s default)
-│       ├── components/
-│       │   ├── Layout.tsx     ← nav bar (add new nav entries here)
-│       │   └── StatusBadge.tsx
+│       ├── api/client.ts            ← ALLE fetch-Calls hier zentralisiert (BASE = '/ella_ems/api')
+│       ├── utils/time.ts            ← UTC-Timestamp-Parsing + de-AT Formatierung
+│       ├── hooks/usePolling.ts      ← Polling-Hook (Standard 5s)
+│       ├── components/Layout.tsx    ← Navigationsleiste
 │       └── pages/
-│           ├── DashboardOperator.tsx  ← main EMS overview + 30-min chart
-│           ├── ResidentDashboard.tsx  ← B+ resident portal
-│           ├── Participants.tsx
-│           ├── Meters.tsx
-│           ├── Devices.tsx
-│           ├── Alarms.tsx
-│           ├── Settlement.tsx  ← 15-min interval table + approve workflow
-│           ├── Reports.tsx     ← report generation + download
-│           ├── OpsRules.tsx
-│           └── SimDashboard.tsx  ← interactive simulation (standalone, no EMS dependency)
-├── services/
-│   ├── meter-collector/       ← reads smart meters (or simulates), writes measurements
-│   ├── inverter-controller/   ← reads power_states → calculates setpoint → control_decisions
-│   ├── settlement-worker/     ← closes 15-min intervals, proportional B+ allocation
-│   ├── reporting-worker/      ← polls reports table, generates PDF/CSV/ZIP
-│   └── alarm-worker/          ← placeholder (alarm logic in backend-api for now)
-├── simulation/                ← standalone simulation service (independent of core EMS)
-│   ├── sim_api.py             ← FastAPI: /sim/state, /sim/update, /sim/push, /sim/reset
+│           ├── DashboardOperator.tsx
+│           ├── SimDashboard.tsx     ← Software- UND Hardware-Simulation
+│           └── ...
+├── simulation/
+│   ├── sim_api.py                   ← FastAPI: /sim/state, /sim/update, /sim/push, /sim/reset, /smartmeter
 │   └── Dockerfile
-├── config/                    ← JSON config files (mounted read-only into services)
-│   ├── site.example.json
-│   ├── inverter.example.json
-│   └── tariffs.example.json
-├── data/                      ← SQLite DB (gitignored except .gitkeep)
-├── logs/                      ← service logs (gitignored)
-├── reports/                   ← generated report files (gitignored except .gitkeep)
+├── services/
+│   ├── meter-collector/             ← Profil: collector (startet nicht im Standard)
+│   ├── inverter-controller/
+│   ├── settlement-worker/
+│   └── reporting-worker/
+├── data/                            ← SQLite-DB (gitignored außer .gitkeep)
+├── reports/                         ← Generierte Berichte (gitignored außer .gitkeep)
 └── tools/
-    ├── backfill_month.py      ← generate a full month of simulation data (idempotent)
-    ├── check_db.py            ← quick DB health check (magic bytes, WAL size)
-    └── repair_db.py           ← WAL checkpoint + table row count check
+    ├── backfill_month.py
+    ├── check_db.py
+    └── repair_db.py
 ```
 
 ---
 
 ## Key Commands
 
-### Start the system
+### Lokal starten
+
 ```bash
 docker compose up -d
 ```
-Starts: nginx, backend-api, meter-collector, inverter-controller, settlement-worker, reporting-worker, simulation.
 
-### Build and deploy frontend (required after any frontend change)
+Startet: ella-nginx, backend-api, inverter-controller, settlement-worker, reporting-worker, simulation.
+**meter-collector startet nicht automatisch** (Profil `collector`) — das ist gewollt, damit Hardware-Push-Tests nicht gestört werden.
+
+### Frontend neu bauen und deployen (lokal)
+
 ```bash
-# 1. Rebuild the frontend image
+# 1. Image bauen
 docker compose build frontend
 
-# 2. Copy built dist to host (nginx serves from ./frontend/dist directly)
-docker run --rm -v "./frontend/dist:/output" ella_ems-frontend sh -c "cp -rp /app/dist/. /output/"
+# 2. Dist auf Host kopieren (absoluter Pfad — relative Pfade scheitern auf Windows/Git Bash)
+docker run --rm -v "C:/dev2/ella_ems/frontend/dist:/output" ella_ems-frontend sh -c "cp -rp /app/dist/. /output/"
 
-# 3. Reload nginx (no restart needed)
-docker exec ella-nginx nginx -s reload
+# 3. nginx neu laden (kein Neustart nötig)
+MSYS_NO_PATHCONV=1 docker exec ella-nginx nginx -s reload
 ```
 
-**Why this pattern:** The nginx container serves `./frontend/dist` as a bind mount. The `frontend` service in docker-compose (profile: `build`) copies the compiled assets from the image into the host directory. This decouples build from runtime.
+### Einzelnen Backend-Service neu bauen (lokal)
 
-### Rebuild a backend service
 ```bash
-docker compose build backend-api   # or meter-collector, etc.
+docker compose build backend-api
 docker compose up -d --no-deps backend-api
 ```
 
-### Rebuild simulation
+### Simulation neu bauen (lokal)
+
 ```bash
 docker compose build simulation
-docker compose up -d simulation
+docker compose up -d --no-deps simulation
 ```
 
-### Generate test data for a full month
+### meter-collector manuell starten (optional, lokal)
+
+```bash
+docker compose --profile collector up -d meter-collector
+```
+
+### Produktions-Deployment auf www.sailersoft.com
+
+**WICHTIG:** Auf Prod immer BEIDE Compose-Files angeben, sonst fehlt das `webnet`-Netzwerk und der sailersoft-nginx findet die Container nicht (404/502).
+
+```bash
+# Auf dem Prod-Server (SSH: ella@www.sailersoft.com)
+cd ~/app/ella_ems
+git pull
+
+# Service neu bauen und starten
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build <service>
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps <service>
+
+# Frontend bauen und deployen
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm --profile build frontend
+# kein nginx-Reload nötig – bind mount, sofort sichtbar
+```
+
+### sailersoft-nginx auf Prod neu laden
+
+```bash
+docker exec nginx nginx -t && docker exec nginx nginx -s reload
+```
+
+### Testdaten für einen vollen Monat generieren
+
 ```bash
 docker exec ella-reporting-worker python backfill_month.py 2026-05
 ```
-Script is idempotent — safe to re-run. Generates measurements, power_states, control_decisions (5-min intervals), then settles all 15-min intervals.
 
-### Local frontend development
+Idempotent — sicher mehrfach ausführbar.
+
+### DB-Diagnose
+
+```bash
+python tools/check_db.py    # Dateigröße + Magic-Bytes
+python tools/repair_db.py   # WAL-Checkpoint + Zeilenzählung
+```
+
+### Lokale Frontend-Entwicklung (ohne Docker)
+
 ```bash
 cd frontend
 npm install
-npm run dev   # proxies /api/ to localhost:3000
+npm run dev   # Proxy: /ella_ems/api → localhost:3000, /ella_ems/sim → localhost:8080
 ```
-Requires backend-api running locally or via Docker on port 3000.
 
-### DB health check
-```bash
-python tools/check_db.py    # file size + magic bytes check
-python tools/repair_db.py   # WAL checkpoint + row counts
-```
+Setzt laufende backend-api (Port 3000) und simulation (Port 8080) voraus.
 
 ---
 
-## Environment Variables
+## Umgebungsvariablen
 
-The `.env` file (gitignored) controls runtime behaviour:
+`.env` (gitignored):
 
 ```env
 ELLA_DB_PATH=/data/ella-edge.db
@@ -180,186 +220,224 @@ ELLA_CONFIG_DIR=/config
 API_PORT=3000
 JWT_SECRET=dev-secret-change-in-production
 SIMULATION_MODE=true
-SIMULATION_SCENARIO=summer_high_pv   # or winter_20_percent_local_coverage
+SIMULATION_SCENARIO=summer_high_pv   # oder winter_20_percent_local_coverage
 LOG_LEVEL=info
 ```
 
-All services use `ELLA_DB_PATH` to find the shared SQLite file. Default values are set in `docker-compose.yml` via `${VAR:-default}` syntax.
+---
+
+## Datenbank
+
+**Datei:** `./data/ella-edge.db` (WAL-Modus, geteilt)
+
+**Wichtige Tabellen:**
+
+| Tabelle | Schreiber | Zweck |
+|---------|-----------|-------|
+| `measurements` | meter-collector, simulation | Leistungsmessung pro Zähler, alle 5s |
+| `power_states` | meter-collector, simulation | Aggregierte B+/B-/PV/SOC-Totale |
+| `control_decisions` | inverter-controller | Sollwert pro 5s-Zyklus |
+| `settlement_intervals` | settlement-worker | 15-min-Energietotale + Status |
+| `settlement_participant_allocations` | settlement-worker | Pro-Teilnehmer-Aufteilung |
+| `meters` | Schema/Seed | Zähler inkl. `cid` (SmartMeter HW-ID) |
+| `reports` | backend-api (erstellt), reporting-worker (abschließt) | Report-Jobqueue |
+| `alarms` | alle Services | Systemalarme |
+
+**Timestamp-Konvention:** Alle `*_utc`-Spalten speichern UTC als ISO-8601-String im Format `2026-06-12T18:47:26Z` (mit `T` und `Z`). SQLite-Funktion `datetime('now')` liefert ein Format mit Leerzeichen — für Zeitvergleiche immer `strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ...)` verwenden, sonst schlägt der String-Vergleich fehl.
+
+**SQLite-Parallelitätsregeln:**
+- Immer `PRAGMA journal_mode=WAL` und `busy_timeout=5000` setzen
+- Verbindung nicht über Sleep-Loops hinweg halten — öffnen, schreiben, schließen
+- DB Browser für SQLite sperrt die Datei → Docker-Container-Schreibzugriff blockiert
+
+**DB-Neuanlage nach Korruption (VirtioFS / Docker Desktop Windows):**
+```powershell
+# Alle Container stoppen
+docker compose down
+# DB-Dateien löschen
+Remove-Item data\ella-edge.db, data\ella-edge.db-wal, data\ella-edge.db-shm -ErrorAction SilentlyContinue
+# DB durch Python-Container vorab anlegen (Bun kann unter VirtioFS keine neue Datei erstellen)
+docker run --rm -v "C:/dev2/ella_ems/data:/data" python:3.12-slim python -c "import sqlite3; sqlite3.connect('/data/ella-edge.db').close()"
+# System neu starten
+docker compose up -d
+docker exec ella-reporting-worker python backfill_month.py 2026-05
+```
 
 ---
 
-## Database
+## Service-Logik
 
-**File:** `./data/ella-edge.db` (WAL mode, shared by all services)
+### meter-collector (Profil: `collector`)
 
-**Key tables and their writers:**
-
-| Table | Written by | Purpose |
-|-------|-----------|---------|
-| `measurements` | meter-collector, simulation | Per-meter power readings every 5s |
-| `power_states` | meter-collector, simulation | Aggregated B+/B- totals, PV, SOC |
-| `control_decisions` | inverter-controller | Setpoint per 5s cycle |
-| `settlement_intervals` | settlement-worker | 15-min energy totals + status |
-| `settlement_participant_allocations` | settlement-worker | Per-participant energy split |
-| `reports` | backend-api (creates), reporting-worker (completes) | Report job queue |
-| `alarms` | any service | System alarms |
-| `audit_events` | backend-api | User action log |
-
-**Schema location:** `database/schema.sql` — applied idempotently on startup by `backend-api/src/db/init.ts`.
-
-**Seed data location:** `database/seed/demo_seed.sql`
-- Site: `site-demo-01` (Ella Demo Anlage, Wien)
-- 6 apartments, 6 meters (`meter-01` … `meter-06`)
-- 4 B+ participants (part-01..04), 2 B- (part-05..06)
-- Default admin: `admin` / password hash is a placeholder (JWT auth not yet implemented)
-- Tariff: local 8 ct/kWh, grid 28 ct/kWh, service fee 2 ct/kWh
-
-**SQLite concurrency rules:**
-- Always set `PRAGMA journal_mode=WAL` and `busy_timeout=5000` in every connection
-- One write transaction at a time; reads are concurrent
-- Never open a connection and hold it across a sleep loop — open, write, close each cycle
-- If DB becomes corrupted (can happen under VirtioFS on Docker Desktop): delete `ella-edge.db`, `ella-edge.db-wal`, `ella-edge.db-shm` — the backend-api will recreate from schema+seed on next start, then re-run `backfill_month.py`
-
----
-
-## Service Logic
-
-### meter-collector
-- Polls every 5s (configurable via `METER_POLL_INTERVAL_S`)
-- In `SIMULATION_MODE`: generates deterministic per-meter loads using a hash-seeded random + time-of-day curve; PV via sine wave; SOC via sinusoidal daily cycle
-- Writes one `measurements` row per active meter, then one `power_states` row with B+/B- aggregates
-- `simulate_power(meter_id, scenario, t)` — deterministic from meter ID hash
-- `simulate_pv(scenario, t)` — `summer_high_pv`: 5000W peak sine 6-20h; `winter`: 800W peak 8-16h
+- Startet **nicht** im Standard-`up` — nur explizit via `--profile collector`
+- Polling alle 5s; im SIMULATION_MODE: deterministisch aus Meter-ID-Hash + Tageszeit-Kurve
+- Schreibt eine `measurements`-Zeile pro aktivem Zähler, danach eine `power_states`-Zeile
+- Wenn meter-collector läuft und gleichzeitig Hardware-Push aktiv ist, überschreiben sich die Werte gegenseitig
 
 ### inverter-controller
-- Runs every 5s (configurable via `CONTROL_INTERVAL_S`)
-- Reads latest `power_states` row; calculates setpoint = B+ total demand
-- Limits: `MIN_SOC_PCT=15` (lock discharge below), `MAX_INVERTER_W=10000`, `HYSTERESIS_W=50` (skip write if no meaningful change)
-- Writes `control_decisions` with reason codes: `OK_BPLUS_DEMAND_MATCHED`, `LIMITED_BY_BATTERY_SOC`, `LIMITED_BY_INVERTER_MAX`, `NO_VALID_BPLUS_DATA`, `FAILSAFE`
+
+- Läuft alle 5s; liest neuestem `power_states`-Eintrag; Sollwert = B+-Gesamtbedarf
+- Grenzen: `MIN_SOC_PCT=15`, `MAX_INVERTER_W=10000`, `HYSTERESIS_W=50`
+- Reason-Codes: `OK_BPLUS_DEMAND_MATCHED`, `LIMITED_BY_BATTERY_SOC`, `LIMITED_BY_INVERTER_MAX`, `NO_VALID_BPLUS_DATA`, `FAILSAFE`
 
 ### settlement-worker
-- Runs every 60s; closes all `OPEN` 15-min intervals that ended > 1 minute ago
-- Proportional allocation: each B+ participant's share = their consumption / total B+ consumption × available local energy
-- Plausibility checks: no over-allocation (>1% tolerance), no B- receiving local energy, no negative values; flags as `OK`/`WARNING`/`FAILED`
-- Uses `UNIQUE(site_id, interval_start_utc)` constraint — idempotent on re-run
+
+- Läuft alle 60s; schließt alle `OPEN` 15-min-Intervalle, die > 1 Minute zurückliegen
+- Proportionale Allokation: Anteil B+ Teilnehmer = eigener Verbrauch / Gesamt-B+-Verbrauch × verfügbare Lokalenergie
+- Plausibilitätsprüfung: keine Überzuteilung (>1% Toleranz), keine negativen Werte → `OK`/`WARNING`/`FAILED`
 
 ### reporting-worker
-- Polls `reports` table for `PENDING` jobs every 10s
-- Report types: `RESIDENT_MONTHLY` (PDF with cost breakdown, 15-min detail table), `OPERATOR_MONTHLY` (PDF), `CSV_DETAIL` (all allocations), `DIAGNOSTICS` (ZIP)
-- PDF uses DejaVu Unicode fonts — requires `fonts-dejavu-core` apt package in Dockerfile
-- Font paths: `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf` + `DejaVuSans-Bold.ttf`
-- `params` JSON column on `reports` table stores generation options (e.g. `{"include_detail": true}`)
-- Files written to `/reports/` container path (volume-mounted from `./reports/`)
 
-### simulation (FastAPI)
-- Standalone service — **EMS does not depend on it**
-- In-memory state: `pv_kw`, `soc_pct`, 6 meter loads + B+ flags, `interval_s`
-- Energy flow logic mirrors the real EMS: PV first → battery (if SOC > 20%) → grid fallback for B+ deficit
-- **`POST /sim/push`**: writes current state directly into the EMS DB (`measurements` + `power_states`)
-  - Meter mapping by index: sim m1→`meter-01`, m2→`meter-02`, … m6→`meter-06`
-  - After push, the running `inverter-controller` reads the new `power_states` and automatically computes a `control_decision`
-  - Push interval is max 2s to dominate the meter-collector (5s) when EMS sync is active
-- **`GET /sim/db_status`**: checks DB accessibility from simulation container
-- To use simulation as sole EMS input: `docker compose stop meter-collector inverter-controller`, then enable sync in SimDashboard
+- Pollt `reports`-Tabelle alle 10s auf `PENDING`-Jobs
+- Report-Typen: `RESIDENT_MONTHLY` (PDF), `OPERATOR_MONTHLY` (PDF), `CSV_DETAIL`, `DIAGNOSTICS` (ZIP)
+- PDF-Font: DejaVu, benötigt `fonts-dejavu-core` im Dockerfile
+
+### simulation (FastAPI, Port 8080)
+
+- Eigenständiger Service — EMS hängt **nicht** von ihm ab
+- In-Memory-State: `pv_kw`, `soc_pct`, 6 Bewohner-Zähler + H+, `interval_s`
+- **`POST /sim/push`**: schreibt vollständigen Simulationszustand in EMS-DB
+- **`POST /smartmeter`**: empfängt einzelne Zähler-Messwerte von Hardware; CID → meter_id Auflösung via DB; berechnet `power_states` aus allen Zählern der letzten 30s neu
+- **`GET /sim/db_status`**: prüft DB-Erreichbarkeit aus Simulation-Container
 
 ---
 
-## Frontend Patterns
+## Frontend-Muster
 
-- All API calls go through `frontend/src/api/client.ts` — add new endpoints there
-- `usePolling(fetcher, intervalMs)` hook for live data — default 5s poll
-- Dark theme: `bg-gray-950` page, `bg-gray-900` cards, `border-gray-800` borders
-- Status colors: green=OK/local, amber=warning/grid, red=error, blue=battery, gray=offline/B-
-- Tailwind classes only — no CSS modules, no styled-components
-- German UI labels throughout (Austrian German, formal "Sie" not used — functional labels)
-- Add new pages: create `src/pages/Xyz.tsx`, add route in `App.tsx`, add nav entry in `Layout.tsx`
+### Sub-Pfad-Konfiguration
 
----
+- `vite.config.ts`: `base: '/ella_ems/'` — alle Assets werden unter `/ella_ems/assets/...` gebaut
+- `main.tsx`: `<BrowserRouter basename="/ella_ems">` — React Router kennt den Sub-Pfad
+- `api/client.ts`: `const BASE = '/ella_ems/api'` — alle API-Calls automatisch korrekt
+- Dev-Proxy in `vite.config.ts` stripped `/ella_ems` vor dem Weiterleiten an localhost
 
-## API Reference
+### Zeit-Utilities (`src/utils/time.ts`)
 
-Base URL: `http://localhost/api/`  
-Swagger UI: `http://localhost/api/docs`
+```typescript
+import { utcToDate, fmtLocalTime, fmtLocalDateTime } from '../utils/time'
+```
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/health` | GET | Service health + DB connectivity |
-| `/api/dashboard/operator` | GET | Power state, 30-min history, alarm count, today's settlement |
-| `/api/dashboard/resident/:id` | GET | Per-participant today/month consumption + savings |
-| `/api/dashboard/devices` | GET | Inverter + battery status, latest decision |
-| `/api/meters/status` | GET | All meters with latest reading |
-| `/api/alarms` | GET | All alarms (last 100) |
-| `/api/alarms/active` | GET | Active alarms only |
-| `/api/alarms/:id/ack` | POST | Acknowledge alarm |
-| `/api/alarms/:id/close` | POST | Close alarm |
-| `/api/control-decisions` | GET | `?limit=20` — recent decisions |
-| `/api/control-decisions/latest` | GET | Single latest decision |
-| `/api/settlement/intervals` | GET | `?month=2026-05` — all intervals |
-| `/api/settlement/summary` | GET | `?month=2026-05` — aggregated monthly totals |
-| `/api/settlement/plausibility` | GET | `?month=2026-05` — plausibility check results |
-| `/api/settlement/approve` | POST | `{month: "2026-05"}` — lock month for billing |
-| `/api/reports` | GET | All reports (last 100) |
-| `/api/reports/generate` | POST | `{report_type, month, participant_id?, include_detail?}` |
-| `/api/reports/:id/download` | GET | Stream file to browser |
-| `/sim/state` | GET | Current simulation state + computed flow |
-| `/sim/update` | POST | Update simulation parameters |
-| `/sim/push` | POST | Write simulation state to EMS DB |
-| `/sim/reset` | GET | Reset simulation to defaults |
-| `/sim/db_status` | GET | Check if EMS DB is accessible from simulation container |
+- `utcToDate(ts)` — parst UTC-Strings korrekt (normalisiert fehlendes `Z`)
+- `fmtLocalTime(ts)` — `HH:MM:SS` in de-AT Lokalzeit
+- `fmtLocalDateTime(ts)` — vollständiges Datum+Zeit in de-AT Lokalzeit
+- **Niemals** rohe Strings slicen (`ts.substring(11, 19)`) — immer diese Utilities verwenden
+
+### Dark-Theme-Konventionen
+
+- Seite: `bg-gray-950`, Karten: `bg-gray-900`, Rahmen: `border-gray-800`
+- Farben: grün = OK/lokal, amber = Warnung/Netz, rot = Fehler, blau = Batterie, grau = offline/B–, teal = H+
+- Nur Tailwind-Klassen — kein CSS-Modul, kein styled-components
+- Deutsche UI-Labels durchgängig
+
+### API-Calls erweitern
+
+1. Neuen Call in `frontend/src/api/client.ts` hinzufügen
+2. Page/Hook implementieren
+3. Neuer Endpunkt? → `backend-api/src/routes/` + `main.ts`
 
 ---
 
-## Known Issues / Not Yet Implemented
+## API-Referenz
 
-- **JWT authentication**: `auth.ts` returns 501. All API endpoints are currently open — no token required. Planned: JWT with role-based access (admin, operator, resident, ops, solarel).
-- **Real meter protocols**: Modbus TCP/RTU code paths are stubs. `protocol` field on meters table supports `SIMULATION | MODBUS_TCP | MODBUS_RTU` but only SIMULATION is implemented.
-- **Alarm worker**: The `services/alarm-worker/` directory exists but has no implementation. Alarm creation is manual via API.
-- **Settlement approval workflow**: `LOCKED` status exists but approval UI is minimal.
-- **B+ status in simulation**: The "B+" toggle in SimDashboard only affects simulation-internal flow calculation. It does not update the `participants` table in the DB — the settlement and resident dashboard still use the DB participant status.
+Swagger: `http://localhost/ella_ems/api/docs`
+
+| Endpunkt | Methode | Beschreibung |
+|----------|---------|--------------|
+| `/ella_ems/api/health` | GET | Health + DB-Konnektivität |
+| `/ella_ems/api/dashboard/operator` | GET | Power state, 30-min-History, Alarme, Settlement |
+| `/ella_ems/api/dashboard/resident/:id` | GET | Pro-Teilnehmer heute/Monat |
+| `/ella_ems/api/dashboard/devices` | GET | Wechselrichter + Batterie, letzte Entscheidung |
+| `/ella_ems/api/meters/status` | GET | Alle Zähler mit letztem Messwert |
+| `/ella_ems/api/alarms` | GET | Alle Alarme (letzte 100) |
+| `/ella_ems/api/alarms/active` | GET | Nur aktive Alarme |
+| `/ella_ems/api/alarms/:id/ack` | POST | Alarm quittieren |
+| `/ella_ems/api/alarms/:id/close` | POST | Alarm schließen |
+| `/ella_ems/api/control-decisions` | GET | `?limit=20` — letzte Entscheidungen |
+| `/ella_ems/api/control-decisions/latest` | GET | Letzte Einzelentscheidung |
+| `/ella_ems/api/settlement/intervals` | GET | `?month=2026-05` — alle Intervalle |
+| `/ella_ems/api/settlement/summary` | GET | `?month=2026-05` — Monatstotale |
+| `/ella_ems/api/settlement/plausibility` | GET | `?month=2026-05` — Plausibilitätsprüfung |
+| `/ella_ems/api/settlement/approve` | POST | `{month}` — Monat für Abrechnung sperren |
+| `/ella_ems/api/reports` | GET | Alle Reports |
+| `/ella_ems/api/reports/generate` | POST | `{report_type, month, participant_id?, include_detail?}` |
+| `/ella_ems/api/reports/:id/download` | GET | Datei streamen |
+| `/ella_ems/sim/state` | GET | Aktueller Simulationszustand + berechneter Fluss |
+| `/ella_ems/sim/update` | POST | Simulationsparameter aktualisieren |
+| `/ella_ems/sim/push` | POST | Simulationszustand in EMS-DB schreiben |
+| `/ella_ems/sim/reset` | GET | Simulation auf Defaultwerte zurücksetzen |
+| `/ella_ems/sim/db_status` | GET | DB-Erreichbarkeit aus Simulation-Container |
+| `/ella_ems/smartmeter` | POST | SmartMeter HW-Push: `{LDT, LDTsm, CID, Pact}` |
 
 ---
 
-## Demo Login
+## Docker Compose Profile
 
-URL: `http://localhost/`  
-Current state: Auth not implemented — all pages accessible without login.  
-Admin user in seed: username `admin`, password hash is a placeholder.
+| Profil | Aktivierte Services |
+|--------|---------------------|
+| (kein) | ella-nginx, backend-api, inverter-controller, settlement-worker, reporting-worker, simulation |
+| `collector` | + meter-collector |
+| `build` | + frontend-builder (kopiert dist auf Host) |
+| `local_only` | + ella-nginx (normalerweise schon im Standard) |
+| `events` | + rabbitmq (zukünftige Event-Bus, noch nicht genutzt) |
 
----
-
-## Docker Compose Profiles
-
-- Default (no profile): nginx, backend-api, meter-collector, inverter-controller, settlement-worker, reporting-worker, simulation
-- `--profile build`: adds `frontend` builder container (copies dist to host)
-- `--profile events`: adds `rabbitmq` (future event bus, not yet used)
+Im Produktions-Overlay (`docker-compose.prod.yml`) wird `ella-nginx` auf Profil `local_only` gesetzt und startet damit **nicht** automatisch.
 
 ---
 
-## Development Notes
+## Entwicklungshinweise
 
-### Adding a new API route
-1. Create `backend-api/src/routes/newFeature.ts` exporting an Elysia plugin with `prefix: '/api/new-feature'`
-2. Import and `.use()` it in `backend-api/src/main.ts`
-3. Add the call to `frontend/src/api/client.ts`
-4. Rebuild: `docker compose build backend-api && docker compose up -d --no-deps backend-api`
+### Neue API-Route hinzufügen
 
-### Adding a new frontend page
-1. Create `frontend/src/pages/NewPage.tsx`
-2. Add route in `frontend/src/App.tsx`
-3. Add nav entry in `frontend/src/components/Layout.tsx`
-4. Rebuild frontend and deploy (see Key Commands above)
+1. `backend-api/src/routes/newFeature.ts` anlegen — Elysia-Plugin mit `prefix: '/api/new-feature'`
+2. In `backend-api/src/main.ts` importieren und `.use()` aufrufen
+3. In `frontend/src/api/client.ts` eintragen
+4. `docker compose build backend-api && docker compose up -d --no-deps backend-api`
 
-### Python service changes
-Each service has its own `Dockerfile` and `requirements.txt`. Rebuild:
+### Neue Frontend-Seite hinzufügen
+
+1. `frontend/src/pages/NewPage.tsx` anlegen
+2. Route in `frontend/src/App.tsx` eintragen
+3. Nav-Eintrag in `frontend/src/components/Layout.tsx`
+4. Frontend neu bauen und deployen (siehe Key Commands)
+
+### DB-Migration (neue Spalte)
+
+`backend-api/src/db/init.ts` enthält einen Migration-Block. Muster:
+
+```typescript
+try {
+  db.run('ALTER TABLE meters ADD COLUMN new_col TEXT')
+  db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_table_col ON table(col) WHERE col IS NOT NULL')
+} catch { /* already exists */ }
+```
+
+`ALTER TABLE ... ADD COLUMN` unterstützt kein `UNIQUE` direkt — immer separat als `CREATE UNIQUE INDEX`.
+
+### Python-Service ändern
+
 ```bash
 docker compose build <service-name>
 docker compose up -d --no-deps <service-name>
 ```
 
-### SQLite on Docker Desktop (Windows)
-Docker Desktop uses VirtioFS. Under heavy concurrent write load the WAL/SHM files can become inconsistent after abrupt container restarts. If the DB becomes unreadable:
-```powershell
-Remove-Item data\ella-edge.db, data\ella-edge.db-wal, data\ella-edge.db-shm -ErrorAction SilentlyContinue
-docker compose restart backend-api   # recreates schema + seed
-docker exec ella-reporting-worker python backfill_month.py 2026-05
+### MSYS_NO_PATHCONV auf Windows/Git Bash
+
+Docker-Exec-Befehle mit absoluten Pfaden im Container scheitern in Git Bash (Pfadkonversion):
+
+```bash
+# Falsch (Git Bash konvertiert /var/log → C:/Program Files/Git/var/log):
+docker exec ella-nginx cat /var/log/nginx/error.log
+
+# Richtig:
+MSYS_NO_PATHCONV=1 docker exec ella-nginx cat /var/log/nginx/error.log
 ```
+
+---
+
+## Bekannte Probleme / Nicht implementiert
+
+- **JWT-Authentifizierung**: `auth.ts` gibt 501 zurück. Alle Endpunkte sind derzeit offen. Geplant: JWT mit Rollen (admin, operator, resident, ops, solarel).
+- **Echte Zählerprotokolle**: Modbus TCP/RTU ist Stub. `protocol`-Feld unterstützt `SIMULATION | MODBUS_TCP | MODBUS_RTU`, aber nur SIMULATION ist implementiert.
+- **Alarm-Worker**: `services/alarm-worker/` existiert, ist aber nicht implementiert.
+- **B+-Status in Simulation**: Der B+-Toggle im SimDashboard betrifft nur die interne Flussberechnung. Er schreibt **nicht** in die `participants`-Tabelle — Settlement und Bewohner-Dashboard nutzen weiterhin den DB-Status.
+- **Settlement-Freigabe-UI**: `LOCKED`-Status existiert, aber die Genehmigungsmaske ist minimal.
