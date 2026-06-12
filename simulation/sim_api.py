@@ -255,11 +255,15 @@ def smartmeter_push(reading: SmartMeterReading):
             (SITE_ID, meter_id, ts_str, round(pact_kw * 1000, 2)),
         )
 
-        # Recompute power_states from latest measurement per active meter
+        # Recompute power_states from latest measurement per active meter.
+        # 30s window: meters that stopped pushing (HW button off) are excluded
+        # within one push cycle (10s interval × 3 = 30s margin).
         meter_rows = db.execute("""
             SELECT m.id, p.participant_status,
                    (SELECT active_power_w FROM measurements
-                    WHERE meter_id = m.id ORDER BY timestamp_utc DESC LIMIT 1) AS latest_w
+                    WHERE meter_id = m.id
+                      AND timestamp_utc >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-30 seconds')
+                    ORDER BY timestamp_utc DESC LIMIT 1) AS latest_w
             FROM meters m
             LEFT JOIN participants p ON p.meter_id = m.id AND p.is_active = 1
             WHERE m.site_id = ? AND m.is_active = 1
