@@ -11,6 +11,9 @@ import { alarmRoutes } from './routes/alarms'
 import { controlDecisionRoutes } from './routes/controlDecisions'
 import { settlementRoutes } from './routes/settlement'
 import { reportRoutes } from './routes/reports'
+import { mdmParticipantRoutes } from './routes/mdm/participants'
+import { mdmDeviceRoutes }      from './routes/mdm/devices'
+import { mdmSmartmeterLogRoutes } from './routes/mdm/smartmeterLog'
 
 const PORT = parseInt(process.env.API_PORT ?? '3000')
 
@@ -28,6 +31,9 @@ const app = new Elysia()
   .use(controlDecisionRoutes)
   .use(settlementRoutes)
   .use(reportRoutes)
+  .use(mdmParticipantRoutes)
+  .use(mdmDeviceRoutes)
+  .use(mdmSmartmeterLogRoutes)
   .listen(PORT)
 
 console.log(`Ella Backend API running on port ${PORT}`)

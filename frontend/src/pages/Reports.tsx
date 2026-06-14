@@ -1,14 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
-
-const PARTICIPANTS = [
-  { id: 'part-01', name: 'Familie Müller (Top 1)' },
-  { id: 'part-02', name: 'Hr. Schmidt (Top 2)' },
-  { id: 'part-03', name: 'Fr. Berger (Top 3)' },
-  { id: 'part-04', name: 'Familie Wagner (Top 4)' },
-]
 
 const REPORT_TYPES = [
   {
@@ -61,10 +54,19 @@ function currentMonth() {
 
 export default function Reports() {
   const [month, setMonth]         = useState(currentMonth())
-  const [partId, setPartId]       = useState(PARTICIPANTS[0].id)
+  const [participants, setParts]  = useState<{ id: string; name: string }[]>([])
+  const [partId, setPartId]       = useState('')
   const [includeDetail, setDetail] = useState(true)
   const [generating, setGen]      = useState<string | null>(null)
   const [genError, setGenError]   = useState<string | null>(null)
+
+  useEffect(() => {
+    api.mdmParticipants('?active=1&status=BPLUS').then((list: any[]) => {
+      const mapped = list.map(p => ({ id: p.id, name: p.display_name }))
+      setParts(mapped)
+      if (mapped.length > 0) setPartId(mapped[0].id)
+    }).catch(() => {})
+  }, [])
 
   const { data: reportsRaw } = usePolling(api.reports, 5000)
   const reports: any[] = reportsRaw ?? []
@@ -113,7 +115,7 @@ export default function Reports() {
               onChange={e => setPartId(e.target.value)}
               className="block bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-gray-500"
             >
-              {PARTICIPANTS.map(p => (
+              {participants.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>

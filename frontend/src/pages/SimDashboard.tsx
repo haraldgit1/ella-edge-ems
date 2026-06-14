@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { api } from '../api/client'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,9 @@ interface Meter {
   id: string
   name: string
   cid?: string          // SmartMeter hardware custom-ID (required for hw_send)
+  db_meter_id?: string  // real meter PK in EMS DB (required for sim/push)
   load_kw: number
+  max_load_kw: number   // upper bound for slider (from meters.max_load_w via MDM)
   is_bplus: boolean
   ac_on?: boolean       // Klimaanlage: +1 kW
   wallbox_on?: boolean  // Wallbox E-Auto: +11 kW
@@ -288,7 +291,7 @@ function MeterCard({
           </span>
         </div>
         <input
-          type="range" min={0} max={4} step={0.05}
+          type="range" min={0} max={meter.max_load_kw} step={0.05}
           value={meter.load_kw}
           onChange={e => onChange({ ...meter, load_kw: parseFloat(e.target.value) })}
           className="w-full h-1.5 rounded-full accent-green-500 cursor-pointer"
@@ -353,12 +356,12 @@ function MeterCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const DEFAULT_METERS: Meter[] = [
-  { id: 'm1', name: 'Familie Müller',  cid: '1001', load_kw: 1.2, is_bplus: true  },
-  { id: 'm2', name: 'Hr. Schmidt',     cid: '1002', load_kw: 0.8, is_bplus: true  },
-  { id: 'm3', name: 'Fr. Berger',      cid: '1003', load_kw: 1.5, is_bplus: true  },
-  { id: 'm4', name: 'Familie Wagner',  cid: '1004', load_kw: 2.0, is_bplus: true  },
-  { id: 'm5', name: 'Hr. Huber',       cid: '1005', load_kw: 0.6, is_bplus: false },
-  { id: 'm6', name: 'Fr. Novak',       cid: '1006', load_kw: 1.0, is_bplus: false },
+  { id: 'm1', name: 'Familie Müller',  cid: '1001', db_meter_id: 'meter-01', load_kw: 1.2, max_load_kw: 4, is_bplus: true  },
+  { id: 'm2', name: 'Hr. Schmidt',     cid: '1002', db_meter_id: 'meter-02', load_kw: 0.8, max_load_kw: 4, is_bplus: true  },
+  { id: 'm3', name: 'Fr. Berger',      cid: '1003', db_meter_id: 'meter-03', load_kw: 1.5, max_load_kw: 4, is_bplus: true  },
+  { id: 'm4', name: 'Familie Wagner',  cid: '1004', db_meter_id: 'meter-04', load_kw: 2.0, max_load_kw: 4, is_bplus: true  },
+  { id: 'm5', name: 'Hr. Huber',       cid: '1005', db_meter_id: 'meter-05', load_kw: 0.6, max_load_kw: 4, is_bplus: false },
+  { id: 'm6', name: 'Fr. Novak',       cid: '1006', db_meter_id: 'meter-06', load_kw: 1.0, max_load_kw: 4, is_bplus: false },
 ]
 
 interface PushResult { ok: boolean; ts?: string; error?: string }
@@ -380,7 +383,7 @@ export default function SimDashboard() {
   // Include H+ (meter-07) as a B+ participant in flow calculation
   const allMeters: Meter[] = [
     ...meters,
-    { id: 'm7', name: 'H+ Wärmepumpe', load_kw: hplusKw, is_bplus: true },
+    { id: 'm7', name: 'H+ Wärmepumpe', cid: '1007', db_meter_id: 'meter-07', load_kw: hplusKw, max_load_kw: 9, is_bplus: true },
   ]
   const flow = computeFlow(pvKw, socPct, allMeters)
 
@@ -435,6 +438,23 @@ export default function SimDashboard() {
       .catch(() => setDbReady(false))
   }, [])
 
+  // Load participants from MDM API — replace DEFAULT_METERS with live data.
+  // Keeps current load_kw at 0.5 kW as neutral starting point.
+  useEffect(() => {
+    api.mdmParticipants('?active=1').then((list: any[]) => {
+      const loaded: Meter[] = list.map((p, i) => ({
+          id:           `m${i + 1}`,
+          name:         p.display_name,
+          cid:          p.cid ?? undefined,
+          db_meter_id:  p.meter_id ?? undefined,
+          load_kw:      0.5,
+          max_load_kw:  p.max_load_w ? p.max_load_w / 1000 : 4,
+          is_bplus:     p.participant_status === 'BPLUS',
+        }))
+      if (loaded.length > 0) setMeters(loaded)
+    }).catch(() => { /* API not available — keep DEFAULT_METERS */ })
+  }, [])
+
   // Animation tick + linear SOC evolution
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -442,7 +462,7 @@ export default function SimDashboard() {
       setSocPct(cur => {
         const mAll = [
           ...metersRef.current,
-          { id: 'm7', name: 'H+', load_kw: hplusKwRef.current, is_bplus: true as const },
+          { id: 'm7', name: 'H+', cid: '1007', db_meter_id: 'meter-07', load_kw: hplusKwRef.current, max_load_kw: 9, is_bplus: true as const },
         ]
         const f = computeFlow(pvKwRef.current, cur, mAll)
         const deltaWh  = (f.battery_charge_w - f.battery_discharge_w) * intervalS / 3600
@@ -469,7 +489,7 @@ export default function SimDashboard() {
             soc_pct:    socPctRef.current,
             meters:     [
               ...metersRef.current.map(m => ({ ...m, load_kw: effectiveKw(m) })),
-              { id: 'm7', name: 'H+ Wärmepumpe', load_kw: hplusKwRef.current, is_bplus: true },
+              { id: 'm7', name: 'H+ Wärmepumpe', cid: '1007', db_meter_id: 'meter-07', load_kw: hplusKwRef.current, max_load_kw: 9, is_bplus: true },
             ],
             interval_s: intervalS,
           }),
@@ -512,9 +532,22 @@ export default function SimDashboard() {
   }
 
   function reset() {
-    setPvKw(5.0); setSocPct(60.0); setMeters(DEFAULT_METERS)
+    setPvKw(5.0); setSocPct(60.0)
     setHplusUnits(0); setIntervalS(2); setSyncEms(false); setLastPush(null)
     setHwSend(new Set())
+    api.mdmParticipants('?active=1').then((list: any[]) => {
+      const loaded: Meter[] = list
+        .filter((_p, i) => i < 6)
+        .map((p, i) => ({
+          id:          `m${i + 1}`,
+          name:        p.display_name,
+          cid:         p.cid ?? undefined,
+          load_kw:     0.5,
+          max_load_kw: p.max_load_w ? p.max_load_w / 1000 : 4,
+          is_bplus:    p.participant_status === 'BPLUS',
+        }))
+      setMeters(loaded.length > 0 ? loaded : DEFAULT_METERS)
+    }).catch(() => setMeters(DEFAULT_METERS))
   }
 
   // Per-meter local allocation (proportional to effective B+ load share, including H+)
@@ -525,7 +558,7 @@ export default function SimDashboard() {
     return Math.min(effectiveKw(m) * 1000, share * flow.local_supply_w)
   }
 
-  const hplusMeter: Meter = { id: 'm7', name: 'H+ Wärmepumpe', cid: '1007', load_kw: hplusKw, is_bplus: true }
+  const hplusMeter: Meter = { id: 'm7', name: 'H+ Wärmepumpe', cid: '1007', db_meter_id: 'meter-07', load_kw: hplusKw, max_load_kw: 9, is_bplus: true }
   const hplusLocalW = meterLocalW(hplusMeter)
   const hplusGridW  = Math.max(0, hplusKw * 1000 - hplusLocalW)
 

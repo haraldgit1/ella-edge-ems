@@ -1,5 +1,5 @@
 """Ella Simulation API – standalone energy-flow simulator, optional EMS DB sync."""
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -10,8 +10,6 @@ import uvicorn
 
 ELLA_DB_PATH = os.environ.get('ELLA_DB_PATH', '')  # empty = no DB sync available
 SITE_ID      = 'site-demo-01'
-# Simulation meter index → real DB meter ID (must match seed order)
-DB_METER_IDS = ['meter-01', 'meter-02', 'meter-03', 'meter-04', 'meter-05', 'meter-06', 'meter-07']
 
 app = FastAPI(title="Ella Simulation API")
 app.add_middleware(
@@ -41,8 +39,10 @@ state: dict = {
 class MeterState(BaseModel):
     id: str
     name: str
+    db_meter_id: Optional[str] = None  # real PK in meters table; required for sim/push
     load_kw: float
     is_bplus: bool
+    model_config = {"extra": "ignore"}
 
 
 class SimUpdate(BaseModel):
@@ -53,10 +53,10 @@ class SimUpdate(BaseModel):
 
 
 class SmartMeterReading(BaseModel):
-    LDT:   str            # "2026-06-12T09:31:33+02:00" — timestamp with timezone
-    LDTsm: Optional[str]  # direct from meter, may be empty
-    CID:   str            # custom ID → maps to meter.cid in DB
-    Pact:  str            # active power in kW (string from device)
+    LDT:   Optional[str] = None  # timestamp with timezone; if empty/absent → server time
+    LDTsm: Optional[str] = None  # direct from meter clock; stored in log only
+    CID:   str                   # custom ID → maps to meter.cid in DB
+    Pact:  str                   # active power in kW (string from device)
 
 
 def compute_flow(s: dict) -> dict:
@@ -176,15 +176,16 @@ def push_to_ems(body: Optional[SimUpdate] = Body(None)):
         db.execute('PRAGMA journal_mode=WAL')
         db.execute('PRAGMA foreign_keys=ON')
 
-        # Per-meter measurements (simulation index maps to DB meter order)
-        for i, meter in enumerate(s['meters']):
-            if i >= len(DB_METER_IDS):
-                break
+        # Per-meter measurements — use db_meter_id passed from frontend; skip if missing
+        for meter in s['meters']:
+            db_mid = meter.get('db_meter_id')
+            if not db_mid:
+                continue
             db.execute(
                 "INSERT INTO measurements "
                 "  (site_id, meter_id, timestamp_utc, active_power_w, quality_flag, source) "
                 "VALUES (?, ?, ?, ?, 'OK', 'SIM_PUSH')",
-                (SITE_ID, DB_METER_IDS[i], ts, round(meter['load_kw'] * 1000, 2)),
+                (SITE_ID, db_mid, ts, round(meter['load_kw'] * 1000, 2)),
             )
 
         # Aggregated power state (what the EMS dashboard reads)
@@ -211,19 +212,41 @@ def push_to_ems(body: Optional[SimUpdate] = Body(None)):
         return {"ok": False, "error": str(e)}
 
 
+def _log_smartmeter(db: sqlite3.Connection, cid: str | None, pact: str | None,
+                    ldt: str | None, meter_id: str | None,
+                    status: str, error_msg: str | None, source_ip: str | None) -> None:
+    try:
+        db.execute(
+            "INSERT INTO smartmeter_log(cid, pact_str, ldt, meter_id, status, error_msg, source_ip) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (cid, pact, ldt, meter_id, status, error_msg, source_ip),
+        )
+    except Exception:
+        pass  # log table may not exist on old DBs — never block the main flow
+
+
 @app.post("/smartmeter")
-def smartmeter_push(reading: SmartMeterReading):
+async def smartmeter_push(reading: SmartMeterReading, request: Request):
     """
     Fire-and-forget SmartMeter hardware push.
     Maps CID → meter_id via DB, writes one measurement row,
     then refreshes power_states from latest readings of all meters.
     """
+    source_ip = request.client.host if request.client else None
+
     if not ELLA_DB_PATH or not os.path.exists(ELLA_DB_PATH):
         return {"ok": False, "error": "EMS database not accessible"}
 
     try:
         pact_kw = float(reading.Pact)
     except (ValueError, TypeError):
+        try:
+            db_err = sqlite3.connect(ELLA_DB_PATH, timeout=3)
+            _log_smartmeter(db_err, reading.CID, reading.Pact, reading.LDT,
+                            None, 'ERROR', f"Ungültiger Pact-Wert: {reading.Pact!r}", source_ip)
+            db_err.commit(); db_err.close()
+        except Exception:
+            pass
         return {"ok": False, "error": f"Ungültiger Pact-Wert: {reading.Pact!r}"}
 
     try:
@@ -236,15 +259,21 @@ def smartmeter_push(reading: SmartMeterReading):
             "SELECT id FROM meters WHERE cid = ? AND is_active = 1", (reading.CID,)
         ).fetchone()
         if not row:
-            db.close()
+            _log_smartmeter(db, reading.CID, reading.Pact, reading.LDT,
+                            None, 'ERROR', f"Unbekannte CID: {reading.CID}", source_ip)
+            db.commit(); db.close()
             return {"ok": False, "error": f"Unbekannte CID: {reading.CID}"}
         meter_id = row[0]
 
-        # Parse LDT timestamp → UTC; fall back to now
-        try:
-            ts = datetime.fromisoformat(reading.LDT).astimezone(timezone.utc)
-            ts_str = ts.isoformat(timespec='seconds').replace('+00:00', 'Z')
-        except Exception:
+        # Parse LDT timestamp → UTC; fall back to server time if absent or unparseable
+        ts_str: str
+        if reading.LDT:
+            try:
+                ts_str = datetime.fromisoformat(reading.LDT).astimezone(timezone.utc) \
+                                 .isoformat(timespec='seconds').replace('+00:00', 'Z')
+            except Exception:
+                ts_str = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+        else:
             ts_str = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
 
         # Write measurement for this one meter
@@ -300,6 +329,8 @@ def smartmeter_push(reading: SmartMeterReading):
              pv_w, soc, valid_count, invalid_count),
         )
 
+        _log_smartmeter(db, reading.CID, reading.Pact, reading.LDT,
+                        meter_id, 'OK', None, source_ip)
         db.commit()
         db.close()
         print(f"[HW_PUSH] {ts_str}  CID={reading.CID}  meter={meter_id}  {pact_kw:.3f} kW")

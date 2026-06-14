@@ -168,12 +168,33 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       "SELECT * FROM devices WHERE device_type = 'BATTERY' AND is_active = 1 LIMIT 1"
     ).get() as any
 
+    const pv = db.query(
+      "SELECT * FROM devices WHERE device_type = 'PV' AND is_active = 1 LIMIT 1"
+    ).get() as any
+
+    const heatpump = db.query(
+      "SELECT * FROM devices WHERE device_type = 'HEAT_PUMP' AND is_active = 1 LIMIT 1"
+    ).get() as any
+
+    // Current heat pump power: latest measurement from the H+ meter (meter-07)
+    const hpMeter = db.query(
+      "SELECT m.id FROM meters m JOIN participants p ON p.meter_id = m.id WHERE p.participant_status = 'BPLUS' AND m.site_id = 'site-demo-01' AND m.cid = '1007' AND m.is_active = 1 LIMIT 1"
+    ).get() as any
+    const hpMeasurement = hpMeter ? db.query(
+      "SELECT active_power_w, timestamp_utc FROM measurements WHERE meter_id = ? ORDER BY timestamp_utc DESC LIMIT 1"
+    ).get(hpMeter.id) as any : null
+
     // Determine online status: last decision within 30s = online
     const lastTs = decision?.timestamp_utc
     const ageS = lastTs
       ? (Date.now() - new Date(lastTs.replace('Z', '+00:00')).getTime()) / 1000
       : 9999
     const inverterOnline = ageS < 30
+
+    const psAgeS = ps?.timestamp_utc
+      ? (Date.now() - new Date(ps.timestamp_utc.replace('Z', '+00:00')).getTime()) / 1000
+      : 9999
+    const psOnline = psAgeS < 60
 
     return {
       inverter: {
@@ -189,6 +210,20 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
         online: inverterOnline,
         soc_pct: ps?.battery_soc_pct ?? null,
         last_seen: ps?.timestamp_utc ?? null,
+      },
+      pv: {
+        ...pv,
+        online: psOnline,
+        current_power_w: ps?.pv_power_w ?? null,
+        last_seen: ps?.timestamp_utc ?? null,
+      },
+      heatpump: {
+        ...heatpump,
+        online: hpMeasurement
+          ? (Date.now() - new Date(hpMeasurement.timestamp_utc.replace('Z', '+00:00')).getTime()) / 1000 < 60
+          : false,
+        current_power_w: hpMeasurement?.active_power_w ?? null,
+        last_seen: hpMeasurement?.timestamp_utc ?? null,
       },
     }
   })

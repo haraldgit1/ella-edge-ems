@@ -3,8 +3,8 @@ import { Outlet, NavLink } from 'react-router-dom'
 const nav = [
   { to: '/operator/dashboard',   label: 'Dashboard',  group: 'Betreiber' },
   { to: '/operator/participants', label: 'Teilnehmer', group: 'Betreiber' },
-  { to: '/operator/devices',      label: 'Geräte',    group: 'Betreiber' },
   { to: '/operator/meters',       label: 'Zähler',    group: 'Betreiber' },
+  { to: '/operator/devices',      label: 'Geräte',    group: 'Betreiber' },
   { to: '/operator/alarms',       label: 'Alarme',      group: 'Betreiber' },
   { to: '/operator/settlement',   label: 'Settlement', group: 'Betreiber' },
   { to: '/operator/reports',      label: 'Reports',    group: 'Betreiber' },

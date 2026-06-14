@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 
 export default function Participants() {
   const [rows, setRows] = useState<any[]>([])
+  const navigate = useNavigate()
 
   useEffect(() => { api.participants().then(setRows).catch(console.error) }, [])
 
@@ -21,7 +23,15 @@ export default function Participants() {
           <tbody>
             {rows.map(r => (
               <tr key={r.id} className="border-t border-gray-800 hover:bg-gray-900/50">
-                <td className="px-4 py-3 font-medium">{r.display_name}</td>
+                <td className="px-4 py-3 font-medium">
+                  <button
+                    onClick={() => navigate(`/mdm/participants?view=${r.id}`)}
+                    className="text-green-400 hover:text-green-300 hover:underline transition-colors text-left"
+                    title="Stammdaten anzeigen"
+                  >
+                    {r.display_name}
+                  </button>
+                </td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                     r.participant_status === 'BPLUS'
@@ -42,6 +52,7 @@ export default function Participants() {
           </tbody>
         </table>
       </div>
+      <p className="text-xs text-gray-600">Auf den Namen klicken öffnet die Stammdaten-Ansicht.</p>
     </div>
   )
 }

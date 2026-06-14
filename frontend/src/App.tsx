@@ -10,10 +10,22 @@ import Settlement from './pages/Settlement'
 import Reports from './pages/Reports'
 import OpsRules from './pages/OpsRules'
 import SimDashboard from './pages/SimDashboard'
+import MdmLayout from './mdm/MdmLayout'
+import MdmParticipants from './mdm/pages/MdmParticipants'
+import MdmDevices from './mdm/pages/MdmDevices'
+import MdmSmartmeterLog from './mdm/pages/MdmSmartmeterLog'
 
 export default function App() {
   return (
     <Routes>
+      {/* MDM — standalone shell, outside EMS layout */}
+      <Route path="/mdm" element={<MdmLayout />}>
+        <Route index element={<Navigate to="/mdm/participants" replace />} />
+        <Route path="participants"   element={<MdmParticipants />} />
+        <Route path="devices"        element={<MdmDevices />} />
+        <Route path="smartmeter-log" element={<MdmSmartmeterLog />} />
+      </Route>
+
       <Route path="/" element={<Layout />}>
         <Route index element={<Navigate to="/operator/dashboard" replace />} />
         <Route path="operator/dashboard"    element={<DashboardOperator />} />

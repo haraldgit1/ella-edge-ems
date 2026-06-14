@@ -33,9 +33,11 @@ UPDATE meters SET cid = '1005' WHERE id = 'meter-05' AND cid IS NULL;
 UPDATE meters SET cid = '1006' WHERE id = 'meter-06' AND cid IS NULL;
 UPDATE meters SET cid = '1007' WHERE id = 'meter-07' AND cid IS NULL;
 
-INSERT OR IGNORE INTO devices(id, site_id, device_type, name, protocol, max_power_w) VALUES
-    ('dev-inverter-01', 'site-demo-01', 'INVERTER', 'Wechselrichter SIM', 'SIMULATION', 10000),
-    ('dev-battery-01',  'site-demo-01', 'BATTERY',  'Batterie SIM',       'SIMULATION', 8000);
+INSERT OR IGNORE INTO devices(id, site_id, device_type, name, manufacturer, model, protocol, max_power_w) VALUES
+    ('dev-inverter-01', 'site-demo-01', 'INVERTER',   'Wechselrichter SIM',  'SIM',     'WR-10kW',   'SIMULATION', 10000),
+    ('dev-battery-01',  'site-demo-01', 'BATTERY',    'Batterie SIM',        'SIM',     'BAT-8kWh',  'SIMULATION',  8000),
+    ('dev-pv-01',       'site-demo-01', 'PV',         'PV-Anlage Dach',      'SIM',     'PV-10kWp',  'SIMULATION', 10000),
+    ('dev-heatpump-01', 'site-demo-01', 'HEAT_PUMP',  'Wärmepumpe H+',       'SIM',     'WP-9kW',    'SIMULATION',  9000);
 
 INSERT OR IGNORE INTO tariffs(id, site_id, name, local_price_ct_per_kwh, grid_price_ct_per_kwh, service_fee_ct_per_kwh, valid_from) VALUES
     ('tariff-demo-01', 'site-demo-01', 'Demo Tarif 2026', 8.0, 28.0, 2.0, '2026-01-01');

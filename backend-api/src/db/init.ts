@@ -30,16 +30,34 @@ export async function initDatabase(): Promise<void> {
   }
 
   // Migration: add cid column to meters for existing DBs
-  // SQLite does not allow UNIQUE on ALTER TABLE ADD COLUMN — use a separate index
   try {
     db.run('ALTER TABLE meters ADD COLUMN cid TEXT')
-    db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_meters_cid ON meters(cid) WHERE cid IS NOT NULL')
-    console.log('Migration: added cid column to meters')
-  } catch { /* column already exists — expected on most starts */ }
-  // Ensure index exists even when column was already added previously
+    console.log('Migration: added cid to meters')
+  } catch { /* already exists */ }
   try {
     db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_meters_cid ON meters(cid) WHERE cid IS NOT NULL')
   } catch { /* ignore */ }
+
+  // Migration: add max_load_w to meters (simulation slider upper bound)
+  try {
+    db.run('ALTER TABLE meters ADD COLUMN max_load_w REAL NOT NULL DEFAULT 4000')
+    console.log('Migration: added max_load_w to meters')
+  } catch { /* already exists */ }
+
+  // Migration: create smartmeter_log table
+  db.run(`CREATE TABLE IF NOT EXISTS smartmeter_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    received_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    cid         TEXT,
+    pact_str    TEXT,
+    ldt         TEXT,
+    meter_id    TEXT,
+    status      TEXT    NOT NULL DEFAULT 'OK' CHECK(status IN ('OK','ERROR')),
+    error_msg   TEXT,
+    source_ip   TEXT
+  )`)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_smartmeter_log_received
+    ON smartmeter_log(received_at DESC)`)
 
   try {
     const seed = readFileSync(SEED_PATH, 'utf-8')

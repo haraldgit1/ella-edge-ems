@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS meters (
     protocol        TEXT NOT NULL DEFAULT 'SIMULATION',  -- SIMULATION | MODBUS_TCP | MODBUS_RTU
     address         TEXT,   -- IP:port or serial device
     modbus_unit_id  INTEGER,
+    max_load_w      REAL    NOT NULL DEFAULT 4000,  -- simulation slider upper bound
     is_active       INTEGER NOT NULL DEFAULT 1,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
@@ -315,6 +316,22 @@ CREATE TABLE IF NOT EXISTS audit_events (
     source_ip       TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ── SmartMeter Push Log ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS smartmeter_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    received_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    cid         TEXT,
+    pact_str    TEXT,
+    ldt         TEXT,
+    meter_id    TEXT,   -- resolved meter (NULL on error)
+    status      TEXT    NOT NULL DEFAULT 'OK' CHECK(status IN ('OK','ERROR')),
+    error_msg   TEXT,
+    source_ip   TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_smartmeter_log_received
+    ON smartmeter_log(received_at DESC);
 
 -- ── System Logs ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS system_logs (

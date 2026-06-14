@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   ResponsiveContainer, ComposedChart, Line, Bar,
   XAxis, YAxis, Tooltip, Legend, CartesianGrid,
@@ -31,10 +31,36 @@ function fmtTick(ts: string, rangeS: number): string {
   return `${H}:${M}:${S}`
 }
 
+interface PartOption { id: string; name: string; meter_id: string }
+
 export default function DashboardOperator() {
   const [rangeS, setRangeS] = useState(1800)
   const fetcher = useCallback(() => api.dashboardOperator(rangeS), [rangeS])
   const { data, error } = usePolling(fetcher, 5000)
+
+  // Participant overlay line
+  const [parts,    setParts]    = useState<PartOption[]>([])
+  const [selId,    setSelId]    = useState('')          // meter_id of selected participant
+  const [selName,  setSelName]  = useState('')
+  const [partHist, setPartHist] = useState<Map<string, number>>(new Map())
+
+  useEffect(() => {
+    api.mdmParticipants('?active=1&status=BPLUS').then((list: any[]) => {
+      const opts: PartOption[] = list
+        .filter(p => p.meter_id)
+        .map(p => ({ id: p.id, name: p.display_name, meter_id: p.meter_id }))
+      setParts(opts)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!selId) { setPartHist(new Map()); return }
+    api.meterHistory(selId, rangeS).then((rows: any[]) => {
+      const m = new Map<string, number>()
+      for (const r of rows) m.set(r.timestamp_utc, Math.round(r.power_w ?? 0))
+      setPartHist(m)
+    }).catch(() => setPartHist(new Map()))
+  }, [selId, rangeS])
 
   if (error) return (
     <div className="text-red-400 bg-red-900/20 rounded-xl p-4 border border-red-800">
@@ -74,15 +100,23 @@ export default function DashboardOperator() {
   const batChargeW  = (ps?.battery_soc_pct ?? 100) < 100 ? Math.min(pvSurplusW, 5000) : 0
   const gridExportW = Math.max(0, Math.round(pvSurplusW - batChargeW))
 
-  const history = (data?.power_history ?? []).map((r: any) => ({
-    t:     fmtTick(r.timestamp_utc, rangeS),
-    raw:   r.timestamp_utc,
-    'B+':  Math.round(r.bplus_power_w   ?? 0),
-    'B-':  Math.round(r.bminus_power_w  ?? 0),
-    'PV':  Math.round(r.pv_power_w      ?? 0),
-    'Netz': Math.round(r.grid_import_w  ?? 0),
-    'SOC': r.battery_soc_pct != null ? Math.round(r.battery_soc_pct) : null,
-  }))
+  const history = (data?.power_history ?? []).map((r: any) => {
+    const pt: any = {
+      t:     fmtTick(r.timestamp_utc, rangeS),
+      raw:   r.timestamp_utc,
+      'B+':  Math.round(r.bplus_power_w   ?? 0),
+      'B-':  Math.round(r.bminus_power_w  ?? 0),
+      'PV':  Math.round(r.pv_power_w      ?? 0),
+      'Netz': Math.round(r.grid_import_w  ?? 0),
+      'SOC': r.battery_soc_pct != null ? Math.round(r.battery_soc_pct) : null,
+    }
+    if (selId) {
+      // match bucket by UTC timestamp string (same bucketing formula in both queries)
+      const w = partHist.get(r.timestamp_utc)
+      pt['Teil'] = w !== undefined ? w : null
+    }
+    return pt
+  })
 
   const simMode = ps !== null
 
@@ -201,20 +235,42 @@ export default function DashboardOperator() {
               {history.length} Punkte · Ø {bucketS < 60 ? `${bucketS}s` : `${Math.round(bucketS/60)} min`} / Punkt
             </p>
           </div>
-          <div className="flex gap-1">
-            {RANGES.map(r => (
-              <button
-                key={r.s}
-                onClick={() => setRangeS(r.s)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                  rangeS === r.s
-                    ? 'bg-green-900/40 text-green-400 border-green-700'
-                    : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500 hover:text-gray-300'
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Participant overlay selector */}
+            {parts.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-gray-500 whitespace-nowrap">Teilnehmer-Linie:</span>
+                <select
+                  value={selId}
+                  onChange={e => {
+                    const opt = parts.find(p => p.meter_id === e.target.value)
+                    setSelId(e.target.value)
+                    setSelName(opt?.name ?? '')
+                  }}
+                  className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-green-700"
+                >
+                  <option value="">— keine —</option>
+                  {parts.map(p => (
+                    <option key={p.meter_id} value={p.meter_id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="flex gap-1">
+              {RANGES.map(r => (
+                <button
+                  key={r.s}
+                  onClick={() => setRangeS(r.s)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                    rangeS === r.s
+                      ? 'bg-green-900/40 text-green-400 border-green-700'
+                      : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -253,19 +309,31 @@ export default function DashboardOperator() {
               <Tooltip
                 contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8, fontSize: 12 }}
                 labelStyle={{ color: '#9ca3af', marginBottom: 4 }}
-                formatter={(v: number, name: string) =>
-                  name === 'SOC' ? [`${v} %`, 'Batterie SOC'] : [`${v} W`, name]
-                }
+                formatter={(v: number, name: string) => {
+                  if (name === 'SOC')  return [`${v} %`, 'Batterie SOC']
+                  if (name === 'Teil') return [`${v} W`, selName]
+                  return [`${v} W`, name]
+                }}
               />
               <Legend
                 wrapperStyle={{ color: '#9ca3af', fontSize: 11, paddingTop: 8 }}
-                formatter={(value) => value === 'SOC' ? 'Batterie SOC (%)' : value === 'Netz' ? 'Netz-Bezug' : value}
+                formatter={(value) =>
+                  value === 'SOC'  ? 'Batterie SOC (%)' :
+                  value === 'Netz' ? 'Netz-Bezug' :
+                  value === 'Teil' ? selName :
+                  value
+                }
               />
               <Line yAxisId="w"   type="monotone" dataKey="B+"   stroke="#22c55e" dot={false} strokeWidth={2} />
               <Line yAxisId="w"   type="monotone" dataKey="PV"   stroke="#facc15" dot={false} strokeWidth={2} />
               <Line yAxisId="w"   type="monotone" dataKey="Netz" stroke="#ef4444" dot={false} strokeWidth={2} />
               <Line yAxisId="w"   type="monotone" dataKey="B-"   stroke="#6b7280" dot={false} strokeWidth={1.5} strokeDasharray="4 2" />
               <Line yAxisId="soc" type="monotone" dataKey="SOC"  stroke="#3b82f6" dot={false} strokeWidth={1.5} strokeDasharray="2 3" connectNulls />
+              {selId && (
+                <Line yAxisId="w" type="monotone" dataKey="Teil"
+                  stroke="#4ade80" dot={false} strokeWidth={2}
+                  strokeDasharray="8 4" connectNulls />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         )}
