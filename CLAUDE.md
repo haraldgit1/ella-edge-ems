@@ -173,7 +173,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps 
 
 # Frontend bauen und deployen
 docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend
-docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm --profile build frontend
+docker compose --profile build -f docker-compose.yml -f docker-compose.prod.yml run --rm frontend
 # kein nginx-Reload nötig – bind mount, sofort sichtbar
 ```
 
