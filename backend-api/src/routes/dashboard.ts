@@ -44,37 +44,32 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
     `).all() as any[]
 
     // Optional participant overlay: ?overlay=<meter_id>
-    // Join measurements to power_states bucket timestamps with ±½-bucket tolerance
-    // so LDT (meter clock) vs server_receive_time offsets don't cause misalignment.
+    // For each power_states row, look up the latest OK measurement for this meter
+    // at or before that moment — exactly mirroring how power_states.bplus_power_w
+    // is computed. This keeps both lines methodically identical and prevents
+    // historical test/sim measurements from skewing the average.
     const overlayMeterId = (query as any)?.overlay ?? ''
-    const half = Math.floor(bucketS / 2)
     const overlayMap = new Map<string, number>()
     if (overlayMeterId) {
-      // overlay_meas: pre-filter by meter_id (uses index) + time range → small result set
-      // created_at = server receive time (matches power_states.timestamp_utc, no LDT offset)
       const overlayRows = db.query(`
-        WITH ps_buckets AS (
+        WITH ps_data AS (
           SELECT
             datetime(CAST(strftime('%s', timestamp_utc) AS INTEGER) / ${bucketS} * ${bucketS}, 'unixepoch') AS bucket_ts,
-            CAST(strftime('%s', timestamp_utc) AS INTEGER) / ${bucketS} * ${bucketS} AS bucket_epoch
+            timestamp_utc AS ps_ts
           FROM power_states
           WHERE site_id = 'site-demo-01'
             AND CAST(strftime('%s', timestamp_utc) AS INTEGER) >= strftime('%s', 'now') - ${rangeS}
-          GROUP BY bucket_epoch
-        ),
-        overlay_meas AS (
-          SELECT active_power_w,
-                 CAST(strftime('%s', created_at) AS INTEGER) AS epoch
-          FROM measurements
-          WHERE meter_id = ?
-            AND quality_flag != 'STALE'
-            AND created_at >= datetime('now', '-${rangeS + bucketS} seconds')
         )
         SELECT ps.bucket_ts AS timestamp_utc,
-               ROUND(AVG(om.active_power_w), 1) AS overlay_w
-        FROM ps_buckets ps
-        LEFT JOIN overlay_meas om ON om.epoch
-              BETWEEN ps.bucket_epoch - ${half} AND ps.bucket_epoch + ${bucketS - half - 1}
+               ROUND(AVG(
+                 (SELECT m.active_power_w
+                  FROM measurements m
+                  WHERE m.meter_id = ?
+                    AND m.quality_flag != 'STALE'
+                    AND m.created_at <= datetime(CAST(strftime('%s', ps.ps_ts) AS INTEGER), 'unixepoch')
+                  ORDER BY m.created_at DESC LIMIT 1)
+               ), 1) AS overlay_w
+        FROM ps_data ps
         GROUP BY ps.bucket_ts
         ORDER BY ps.bucket_ts ASC
       `).all(overlayMeterId) as any[]
