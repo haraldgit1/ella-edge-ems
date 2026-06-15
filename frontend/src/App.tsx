@@ -16,6 +16,7 @@ import MdmDevices from './mdm/pages/MdmDevices'
 import MdmSmartmeterLog from './mdm/pages/MdmSmartmeterLog'
 import DocumentsOverview from './pages/documents/DocumentsOverview'
 import EllaEmsDoc1 from './pages/documents/EllaEmsDoc1'
+import EllaEmsDoc2 from './pages/documents/EllaEmsDoc2'
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="simulation"            element={<SimDashboard />} />
         <Route path="documents"             element={<DocumentsOverview />} />
         <Route path="documents/ella-ems-doc1" element={<EllaEmsDoc1 />} />
+        <Route path="documents/ella-ems-doc2" element={<EllaEmsDoc2 />} />
       </Route>
     </Routes>
   )

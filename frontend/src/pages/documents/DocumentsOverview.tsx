@@ -1,12 +1,21 @@
 const DOCUMENTS = [
   {
-    id:    'ella-ems-doc1',
-    name:  'Ella_EMS_Doc1',
-    title: 'Leistungsbeschreibung Ella Edge EMS',
-    type:  'Produkt-Flyer',
+    id:       'ella-ems-doc1',
+    name:     'Ella_EMS_Doc1',
+    title:    'Leistungsbeschreibung Ella Edge EMS',
+    type:     'Produkt-Flyer',
     audience: 'Geschäftspartner / Vertrieb',
     description: 'Nutzen für Bewohner, Betreiber und Systemlösungsanbieter. Positionierung, USPs und technische Highlights von Ella Edge EMS.',
-    status: 'Entwurf',
+    status:   'Entwurf',
+  },
+  {
+    id:       'ella-ems-doc2',
+    name:     'Ella_EMS_Doc2',
+    title:    'Das System im Überblick — Screenshots & Referenzbilder',
+    type:     'Produkt-Präsentation',
+    audience: 'Geschäftspartner / Vertrieb',
+    description: 'Visuelle Darstellung: Betreiber-Dashboard, Simulationsumgebung, PV-Anlage und SmartMeter mit Bildbeschreibungen.',
+    status:   'Entwurf',
   },
 ]
 
