@@ -44,34 +44,23 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
     `).all() as any[]
 
     // Optional participant overlay: ?overlay=<meter_id>
-    // For each power_states row, look up the latest OK measurement for this meter
-    // at or before that moment — exactly mirroring how power_states.bplus_power_w
-    // is computed. This keeps both lines methodically identical and prevents
-    // historical test/sim measurements from skewing the average.
-    const overlayMeterId = (query as any)?.overlay ?? ''
+    // Reads meter_contributions_json from power_states — the SAME source as bplus_power_w.
+    // Both lines are now derived exclusively from power_states, making them
+    // methodically identical: no separate measurements lookup, no timing races.
+    const overlayMeterId = ((query as any)?.overlay ?? '').replace(/[^a-zA-Z0-9_-]/g, '')
     const overlayMap = new Map<string, number>()
     if (overlayMeterId) {
       const overlayRows = db.query(`
-        WITH ps_data AS (
-          SELECT
-            datetime(CAST(strftime('%s', timestamp_utc) AS INTEGER) / ${bucketS} * ${bucketS}, 'unixepoch') AS bucket_ts,
-            timestamp_utc AS ps_ts
-          FROM power_states
-          WHERE site_id = 'site-demo-01'
-            AND CAST(strftime('%s', timestamp_utc) AS INTEGER) >= strftime('%s', 'now') - ${rangeS}
-        )
-        SELECT ps.bucket_ts AS timestamp_utc,
-               ROUND(AVG(
-                 (SELECT m.active_power_w
-                  FROM measurements m
-                  WHERE m.meter_id = ?
-                    AND m.quality_flag != 'STALE'
-                    AND m.created_at <= datetime(CAST(strftime('%s', ps.ps_ts) AS INTEGER), 'unixepoch')
-                  ORDER BY m.created_at DESC LIMIT 1)
-               ), 1) AS overlay_w
-        FROM ps_data ps
-        GROUP BY ps.bucket_ts
-        ORDER BY ps.bucket_ts ASC
+        SELECT
+          datetime(CAST(strftime('%s', timestamp_utc) AS INTEGER) / ${bucketS} * ${bucketS}, 'unixepoch') AS timestamp_utc,
+          ROUND(AVG(
+            CAST(json_extract(meter_contributions_json, '$."' || ? || '"') AS REAL)
+          ), 1) AS overlay_w
+        FROM power_states
+        WHERE site_id = 'site-demo-01'
+          AND CAST(strftime('%s', timestamp_utc) AS INTEGER) >= strftime('%s', 'now') - ${rangeS}
+        GROUP BY CAST(strftime('%s', timestamp_utc) AS INTEGER) / ${bucketS}
+        ORDER BY timestamp_utc ASC
       `).all(overlayMeterId) as any[]
       for (const r of overlayRows) {
         if (r.overlay_w != null) overlayMap.set(r.timestamp_utc, r.overlay_w)

@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS power_states (
     battery_soc_pct REAL,
     valid_meter_count   INTEGER NOT NULL DEFAULT 0,
     invalid_meter_count INTEGER NOT NULL DEFAULT 0,
+    meter_contributions_json TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

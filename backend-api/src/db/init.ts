@@ -59,6 +59,12 @@ export async function initDatabase(): Promise<void> {
     db.run('CREATE INDEX IF NOT EXISTS idx_measurements_meter_created ON measurements(meter_id, created_at DESC)')
   } catch { /* ignore */ }
 
+  // Migration: per-meter power snapshot for exact overlay queries
+  try {
+    db.run('ALTER TABLE power_states ADD COLUMN meter_contributions_json TEXT')
+    console.log('Migration: added meter_contributions_json to power_states')
+  } catch { /* already exists */ }
+
   // Migration: create smartmeter_log table
   db.run(`CREATE TABLE IF NOT EXISTS smartmeter_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

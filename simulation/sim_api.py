@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
 import sqlite3
+import json
 import os
 import uvicorn
 
@@ -177,6 +178,7 @@ def push_to_ems(body: Optional[SimUpdate] = Body(None)):
         db.execute('PRAGMA foreign_keys=ON')
 
         # Per-meter measurements — use db_meter_id passed from frontend; skip if missing
+        contributions: dict = {}
         for meter in s['meters']:
             db_mid = meter.get('db_meter_id')
             if not db_mid:
@@ -187,20 +189,23 @@ def push_to_ems(body: Optional[SimUpdate] = Body(None)):
                 "VALUES (?, ?, ?, ?, 'OK', 'SIM_PUSH')",
                 (SITE_ID, db_mid, ts, round(meter['load_kw'] * 1000, 2)),
             )
+            contributions[db_mid] = round(meter['load_kw'] * 1000, 2)
 
-        # Aggregated power state (what the EMS dashboard reads)
+        # Aggregated power state with per-meter snapshot for overlay queries
         db.execute(
             "INSERT INTO power_states "
             "  (site_id, timestamp_utc, bplus_power_w, bminus_power_w, total_power_w, "
-            "   pv_power_w, battery_soc_pct, valid_meter_count, invalid_meter_count) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "   pv_power_w, battery_soc_pct, valid_meter_count, invalid_meter_count, "
+            "   meter_contributions_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (SITE_ID, ts,
              round(f['bplus_demand_w'], 2),
              round(f['bminus_demand_w'], 2),
              round(f['bplus_demand_w'] + f['bminus_demand_w'], 2),
              round(f['pv_w'], 2),
              round(s['soc_pct'], 1),
-             len(s['meters']), 0),
+             len(s['meters']), 0,
+             json.dumps(contributions) if contributions else None),
         )
 
         db.commit()
@@ -302,11 +307,14 @@ async def smartmeter_push(reading: SmartMeterReading, request: Request):
 
         bplus_w = bminus_w = 0.0
         valid_count = invalid_count = 0
-        for _mid, status, w, flag in meter_rows:
+        contributions: dict = {}
+        for mid, status, w, flag in meter_rows:
             if w is None or flag == 'STALE':
                 invalid_count += 1
+                contributions[mid] = 0.0
             else:
                 valid_count += 1
+                contributions[mid] = round(w, 2)
                 if status == 'BPLUS':
                     bplus_w += w
                 else:
@@ -324,11 +332,13 @@ async def smartmeter_push(reading: SmartMeterReading, request: Request):
         db.execute(
             "INSERT INTO power_states "
             "  (site_id, timestamp_utc, bplus_power_w, bminus_power_w, total_power_w, "
-            "   pv_power_w, battery_soc_pct, valid_meter_count, invalid_meter_count) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "   pv_power_w, battery_soc_pct, valid_meter_count, invalid_meter_count, "
+            "   meter_contributions_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (SITE_ID, now_str,
              round(bplus_w, 2), round(bminus_w, 2), round(bplus_w + bminus_w, 2),
-             pv_w, soc, valid_count, invalid_count),
+             pv_w, soc, valid_count, invalid_count,
+             json.dumps(contributions)),
         )
 
         _log_smartmeter(db, reading.CID, reading.Pact, reading.LDT,
