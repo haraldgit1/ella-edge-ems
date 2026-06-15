@@ -1,4 +1,7 @@
 import { Outlet, NavLink } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+
+const FE_VERSION = 'F-V1.4'
 
 const nav = [
   { to: '/operator/dashboard',   label: 'Dashboard',  group: 'Betreiber' },
@@ -14,6 +17,15 @@ const nav = [
 ]
 
 export default function Layout() {
+  const [beVersion, setBeVersion] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/ella_ems/api/health')
+      .then(r => r.json())
+      .then(d => setBeVersion(`B-V${d.version}`))
+      .catch(() => setBeVersion('B-V?'))
+  }, [])
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center gap-6 flex-wrap">
@@ -37,8 +49,12 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="ml-auto text-xs text-gray-600 shrink-0">
-          {new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+        <div className="ml-auto flex items-center gap-3 text-xs text-gray-600 shrink-0">
+          <span className="font-mono text-gray-500">
+            {FE_VERSION}
+            {beVersion && <span className="ml-1">{beVersion}</span>}
+          </span>
+          <span>{new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
         </div>
       </header>
       <main className="flex-1 p-6">

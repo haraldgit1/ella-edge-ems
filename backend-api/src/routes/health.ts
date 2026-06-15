@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia'
 import { getDb } from '../db/init'
 
-const VERSION = '1.0.0'
+const VERSION = '1.4'
 const START_TIME = Date.now()
 
 export const healthRoutes = new Elysia()
