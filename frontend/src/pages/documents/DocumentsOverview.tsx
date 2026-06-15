@@ -17,6 +17,15 @@ const DOCUMENTS = [
     description: 'Visuelle Darstellung: Betreiber-Dashboard, Simulationsumgebung, PV-Anlage und SmartMeter mit Bildbeschreibungen.',
     status:   'Entwurf',
   },
+  {
+    id:       'ella-ems-doc3',
+    name:     'Ella_EMS_Doc3',
+    title:    'Ella Edge EMS — Vollständige Produktübersicht',
+    type:     'Produkt-Kombidokument',
+    audience: 'Geschäftspartner / Vertrieb / Technik',
+    description: 'Kombination aus Text und Bild: alle drei Zielgruppen (Bewohner, Betreiber, Systemlösungsanbieter), Nutzenargumente, Screenshots, SmartMeter-Integration und technische Eckdaten.',
+    status:   'Entwurf',
+  },
 ]
 
 export default function DocumentsOverview() {
