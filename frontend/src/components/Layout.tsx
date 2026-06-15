@@ -14,6 +14,7 @@ const nav = [
   { to: '/resident/dashboard',    label: 'Strommix',   group: 'Bewohner'  },
   { to: '/ops/rules',             label: 'Regelung',  group: 'Ops'       },
   { to: '/simulation',            label: 'Simulation', group: 'Demo'     },
+  { to: '/documents',             label: 'Dokumente',  group: 'Info'     },
 ]
 
 export default function Layout() {

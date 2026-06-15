@@ -14,6 +14,8 @@ import MdmLayout from './mdm/MdmLayout'
 import MdmParticipants from './mdm/pages/MdmParticipants'
 import MdmDevices from './mdm/pages/MdmDevices'
 import MdmSmartmeterLog from './mdm/pages/MdmSmartmeterLog'
+import DocumentsOverview from './pages/documents/DocumentsOverview'
+import EllaEmsDoc1 from './pages/documents/EllaEmsDoc1'
 
 export default function App() {
   return (
@@ -38,6 +40,8 @@ export default function App() {
         <Route path="resident/dashboard"    element={<ResidentDashboard />} />
         <Route path="ops/rules"             element={<OpsRules />} />
         <Route path="simulation"            element={<SimDashboard />} />
+        <Route path="documents"             element={<DocumentsOverview />} />
+        <Route path="documents/ella-ems-doc1" element={<EllaEmsDoc1 />} />
       </Route>
     </Routes>
   )
