@@ -43,6 +43,38 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       ORDER BY timestamp_utc ASC
     `).all() as any[]
 
+    // Optional participant overlay: ?overlay=<meter_id>
+    // Join measurements to power_states bucket timestamps with ±½-bucket tolerance
+    // so LDT (meter clock) vs server_receive_time offsets don't cause misalignment.
+    const overlayMeterId = (query as any)?.overlay ?? ''
+    const half = Math.floor(bucketS / 2)
+    const overlayMap = new Map<string, number>()
+    if (overlayMeterId) {
+      const overlayRows = db.query(`
+        WITH ps_buckets AS (
+          SELECT
+            datetime(CAST(strftime('%s', timestamp_utc) AS INTEGER) / ${bucketS} * ${bucketS}, 'unixepoch') AS bucket_ts,
+            CAST(strftime('%s', timestamp_utc) AS INTEGER) / ${bucketS} * ${bucketS} AS bucket_epoch
+          FROM power_states
+          WHERE site_id = 'site-demo-01'
+            AND CAST(strftime('%s', timestamp_utc) AS INTEGER) >= strftime('%s', 'now') - ${rangeS}
+          GROUP BY bucket_epoch
+        )
+        SELECT ps.bucket_ts AS timestamp_utc,
+               ROUND(AVG(m.active_power_w), 1) AS overlay_w
+        FROM ps_buckets ps
+        LEFT JOIN measurements m ON m.meter_id = ?
+          AND m.quality_flag != 'STALE'
+          AND CAST(strftime('%s', m.timestamp_utc) AS INTEGER)
+              BETWEEN ps.bucket_epoch - ${half} AND ps.bucket_epoch + ${bucketS - half - 1}
+        GROUP BY ps.bucket_ts
+        ORDER BY ps.bucket_ts ASC
+      `).all(overlayMeterId) as any[]
+      for (const r of overlayRows) {
+        if (r.overlay_w != null) overlayMap.set(r.timestamp_utc, r.overlay_w)
+      }
+    }
+
     // Today's totals from settlement
     const todaySettlement = db.query(`
       SELECT
@@ -58,7 +90,10 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       power_state: ps ?? null,
       active_alarms: activeAlarms,
       latest_decision: latestDecision ?? null,
-      power_history: history,
+      power_history: history.map((r: any) => ({
+        ...r,
+        overlay_w: overlayMap.get(r.timestamp_utc) ?? null,
+      })),
       range_s:  rangeS,
       bucket_s: bucketS,
       today: {

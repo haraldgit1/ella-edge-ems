@@ -35,14 +35,14 @@ interface PartOption { id: string; name: string; meter_id: string }
 
 export default function DashboardOperator() {
   const [rangeS, setRangeS] = useState(1800)
-  const fetcher = useCallback(() => api.dashboardOperator(rangeS), [rangeS])
-  const { data, error } = usePolling(fetcher, 5000)
 
-  // Participant overlay line
-  const [parts,    setParts]    = useState<PartOption[]>([])
-  const [selId,    setSelId]    = useState('')          // meter_id of selected participant
-  const [selName,  setSelName]  = useState('')
-  const [partHist, setPartHist] = useState<Map<string, number>>(new Map())
+  // Participant overlay — meter_id passed directly to dashboard API so timestamps align
+  const [parts,   setParts]   = useState<PartOption[]>([])
+  const [selId,   setSelId]   = useState('')   // meter_id of selected participant
+  const [selName, setSelName] = useState('')
+
+  const fetcher = useCallback(() => api.dashboardOperator(rangeS, selId), [rangeS, selId])
+  const { data, error } = usePolling(fetcher, 5000)
 
   useEffect(() => {
     api.mdmParticipants('?active=1&status=BPLUS').then((list: any[]) => {
@@ -52,15 +52,6 @@ export default function DashboardOperator() {
       setParts(opts)
     }).catch(() => {})
   }, [])
-
-  useEffect(() => {
-    if (!selId) { setPartHist(new Map()); return }
-    api.meterHistory(selId, rangeS).then((rows: any[]) => {
-      const m = new Map<string, number>()
-      for (const r of rows) m.set(r.timestamp_utc, Math.round(r.power_w ?? 0))
-      setPartHist(m)
-    }).catch(() => setPartHist(new Map()))
-  }, [selId, rangeS])
 
   if (error) return (
     <div className="text-red-400 bg-red-900/20 rounded-xl p-4 border border-red-800">
@@ -111,9 +102,7 @@ export default function DashboardOperator() {
       'SOC': r.battery_soc_pct != null ? Math.round(r.battery_soc_pct) : null,
     }
     if (selId) {
-      // match bucket by UTC timestamp string (same bucketing formula in both queries)
-      const w = partHist.get(r.timestamp_utc)
-      pt['Teil'] = w !== undefined ? w : null
+      pt['Teil'] = r.overlay_w ?? null
     }
     return pt
   })

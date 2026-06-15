@@ -28,7 +28,7 @@ async function put<T>(path: string, body?: unknown): Promise<T> {
 
 export const api = {
   health:              () => get<any>('/health'),
-  dashboardOperator:   (rangeS = 1800) => get<any>(`/dashboard/operator?range=${rangeS}`),
+  dashboardOperator:   (rangeS = 1800, overlay = '') => get<any>(`/dashboard/operator?range=${rangeS}${overlay ? `&overlay=${encodeURIComponent(overlay)}` : ''}`),
   dashboardResident:   (id: string) => get<any>(`/dashboard/resident/${id}`),
   dashboardDevices:    () => get<any>('/dashboard/devices'),
   participants:        () => get<any[]>('/participants'),
