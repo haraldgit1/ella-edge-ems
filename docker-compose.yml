@@ -54,17 +54,12 @@ services:
   meter-collector:
     build: ./services/meter-collector
     container_name: ella-meter-collector
-    profiles:
-      - collector   # nicht im Default-Start; explizit: docker compose --profile collector up -d
     environment:
       - ELLA_DB_PATH=${ELLA_DB_PATH:-/data/ella-edge.db}
-      - ELLA_CONFIG_DIR=${ELLA_CONFIG_DIR:-/config}
-      - SIMULATION_MODE=${SIMULATION_MODE:-true}
-      - SIMULATION_SCENARIO=${SIMULATION_SCENARIO:-summer_high_pv}
+      - WATCHDOG_POLL_S=5
       - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
       - ./data:/data
-      - ./config:/config:ro
       - ./logs/meter-collector:/logs
     depends_on:
       backend-api:

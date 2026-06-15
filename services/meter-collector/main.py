@@ -1,143 +1,147 @@
 """
-Ella meter-collector
-Reads smart meters (or simulates them) and writes to measurements table.
+Ella meter-watchdog
+Monitors active meters for push timeouts. When a meter has been silent
+for longer than push_timeout_s, writes a single 0W measurement
+(quality_flag='STALE', source='WATCHDOG') retroactively at
+last_timestamp + push_interval_s, then recalculates power_states.
+
+Does NOT write simulation values. Simulation only via SimDashboard UI.
 """
 import os
 import time
 import sqlite3
-import math
-import random
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
-DB_PATH = os.environ.get('ELLA_DB_PATH', '/data/ella-edge.db')
-SIMULATION_MODE = os.environ.get('SIMULATION_MODE', 'true').lower() == 'true'
-SCENARIO = os.environ.get('SIMULATION_SCENARIO', 'summer_high_pv')
-POLL_INTERVAL_S = int(os.environ.get('METER_POLL_INTERVAL_S', '5'))
+DB_PATH         = os.environ.get('ELLA_DB_PATH', '/data/ella-edge.db')
+POLL_INTERVAL_S = int(os.environ.get('WATCHDOG_POLL_S', '5'))
+SITE_ID         = 'site-demo-01'
 
 
 def get_db():
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(DB_PATH, timeout=10)
     db.execute('PRAGMA journal_mode=WAL')
     db.execute('PRAGMA foreign_keys=ON')
+    db.execute('PRAGMA busy_timeout=5000')
     return db
 
 
-def get_active_meters(db):
-    cur = db.execute(
-        "SELECT id, site_id, protocol FROM meters WHERE is_active = 1"
-    )
-    return cur.fetchall()
+def check_timeouts(db):
+    now    = datetime.now(timezone.utc)
+    ts_now = now.strftime('%Y-%m-%dT%H:%M:%SZ')
 
+    rows = db.execute("""
+        SELECT
+            m.id                              AS meter_id,
+            m.site_id,
+            COALESCE(m.push_interval_s, 10)  AS push_interval_s,
+            COALESCE(m.push_timeout_s,  60)  AS push_timeout_s,
+            meas.timestamp_utc               AS last_ts,
+            meas.quality_flag                AS last_flag
+        FROM meters m
+        LEFT JOIN measurements meas ON meas.id = (
+            SELECT id FROM measurements
+            WHERE meter_id = m.id
+            ORDER BY timestamp_utc DESC LIMIT 1
+        )
+        WHERE m.is_active = 1 AND m.site_id = ?
+    """, (SITE_ID,)).fetchall()
 
-def simulate_power(meter_id: str, scenario: str, t: float) -> float:
-    """Returns simulated active_power_w for a meter based on scenario."""
-    # Each meter gets a deterministic base load from its id hash
-    seed = sum(ord(c) for c in meter_id)
-    random.seed(seed)
-    base_load = random.uniform(150, 600)  # W
+    wrote_any = False
 
-    hour = (t / 3600) % 24
-    # Typical residential load curve
-    if 7 <= hour < 9 or 17 <= hour < 22:
-        load = base_load * 1.8
-    elif 0 <= hour < 6:
-        load = base_load * 0.3
-    else:
-        load = base_load
+    for meter_id, site_id, interval_s, timeout_s, last_ts, last_flag in rows:
+        if last_ts is None:
+            continue   # meter has never reported — nothing to time out
+        if last_flag == 'STALE':
+            continue   # already marked timed-out; wait for next real push
 
-    # Small noise
-    random.seed(int(t) + seed)
-    load += random.uniform(-30, 30)
-    return max(0.0, load)
+        try:
+            last_dt = datetime.fromisoformat(last_ts.replace('Z', '+00:00'))
+        except ValueError:
+            continue
 
+        age_s = (now - last_dt).total_seconds()
+        if age_s <= timeout_s:
+            continue   # still within timeout window
 
-def collect_simulation(db):
-    meters = get_active_meters(db)
-    now = datetime.now(timezone.utc)
-    ts = now.isoformat(timespec='seconds').replace('+00:00', 'Z')
-    t = now.timestamp()
+        # Retroactive timestamp: one push_interval after the last real value
+        stale_dt = last_dt + timedelta(seconds=interval_s)
+        stale_ts = stale_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    rows = []
-    for meter_id, site_id, protocol in meters:
-        power_w = simulate_power(meter_id, SCENARIO, t)
-        rows.append((
-            site_id, meter_id, ts,
-            round(power_w, 2),
-            None, None, None, None, None,
-            'OK', 'SIMULATION'
-        ))
+        db.execute("""
+            INSERT INTO measurements
+                (site_id, meter_id, timestamp_utc, active_power_w, quality_flag, source)
+            VALUES (?, ?, ?, 0.0, 'STALE', 'WATCHDOG')
+        """, (site_id, meter_id, stale_ts))
 
-    db.executemany("""
-        INSERT INTO measurements
-            (site_id, meter_id, timestamp_utc, active_power_w,
-             energy_import_wh, energy_export_wh, voltage_v, current_a,
-             power_factor, quality_flag, source)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)
-    """, rows)
+        print(f"[WATCHDOG] {meter_id}: {age_s:.0f}s silence → 0W STALE at {stale_ts}")
+        wrote_any = True
+
+    if wrote_any:
+        recalculate_power_states(db, SITE_ID, ts_now)
+
     db.commit()
 
-    # Update power_states
-    bplus = db.execute("""
-        SELECT COALESCE(SUM(m.active_power_w),0)
-        FROM measurements m
-        JOIN participants p ON p.meter_id = m.meter_id
-        WHERE p.participant_status='BPLUS' AND p.is_active=1
-          AND m.timestamp_utc = ?
-    """, (ts,)).fetchone()[0]
 
-    bminus = db.execute("""
-        SELECT COALESCE(SUM(m.active_power_w),0)
-        FROM measurements m
-        JOIN participants p ON p.meter_id = m.meter_id
-        WHERE p.participant_status='BMINUS' AND p.is_active=1
-          AND m.timestamp_utc = ?
-    """, (ts,)).fetchone()[0]
+def recalculate_power_states(db, site_id: str, ts_now: str):
+    """Recompute power_states from latest measurement per active meter.
+    STALE entries contribute 0W and count as invalid_meter_count.
+    PV and SOC are carried forward from the last known power_states row.
+    """
+    last_ps = db.execute(
+        "SELECT pv_power_w, battery_soc_pct FROM power_states "
+        "ORDER BY timestamp_utc DESC LIMIT 1"
+    ).fetchone()
+    pv_w = float(last_ps[0]) if last_ps and last_ps[0] is not None else 0.0
+    soc  = float(last_ps[1]) if last_ps and last_ps[1] is not None else 0.0
 
-    valid_count = len([r for r in rows if r[9] == 'OK'])
-    site_id = rows[0][0] if rows else 'site-demo-01'
+    meter_rows = db.execute("""
+        SELECT m.id, p.participant_status,
+               meas.active_power_w,
+               meas.quality_flag
+        FROM meters m
+        LEFT JOIN participants p ON p.meter_id = m.id AND p.is_active = 1
+        LEFT JOIN measurements meas ON meas.id = (
+            SELECT id FROM measurements
+            WHERE meter_id = m.id
+            ORDER BY timestamp_utc DESC LIMIT 1
+        )
+        WHERE m.site_id = ? AND m.is_active = 1
+    """, (site_id,)).fetchall()
+
+    bplus_w = bminus_w = 0.0
+    valid_count = invalid_count = 0
+
+    for _mid, status, w, flag in meter_rows:
+        if w is None or flag == 'STALE':
+            invalid_count += 1
+        else:
+            valid_count += 1
+            if status == 'BPLUS':
+                bplus_w += w
+            elif status == 'BMINUS':
+                bminus_w += w
 
     db.execute("""
         INSERT INTO power_states
             (site_id, timestamp_utc, bplus_power_w, bminus_power_w,
              total_power_w, pv_power_w, battery_soc_pct,
              valid_meter_count, invalid_meter_count)
-        VALUES (?,?,?,?,?,?,?,?,?)
-    """, (site_id, ts, round(bplus, 2), round(bminus, 2),
-          round(bplus + bminus, 2),
-          round(simulate_pv(SCENARIO, t), 2),
-          round(simulate_soc(t), 1),
-          valid_count, 0))
-    db.commit()
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (site_id, ts_now,
+          round(bplus_w, 2), round(bminus_w, 2),
+          round(bplus_w + bminus_w, 2),
+          pv_w, soc, valid_count, invalid_count))
 
-    print(f"[{ts}] B+={bplus:.0f}W B-={bminus:.0f}W meters={len(rows)}")
-
-
-def simulate_pv(scenario: str, t: float) -> float:
-    hour = (t / 3600) % 24
-    if scenario == 'summer_high_pv':
-        if 6 <= hour <= 20:
-            return max(0, 5000 * math.sin(math.pi * (hour - 6) / 14))
-    elif scenario == 'winter_20_percent_local_coverage':
-        if 8 <= hour <= 16:
-            return max(0, 800 * math.sin(math.pi * (hour - 8) / 8))
-    return 0.0
-
-
-def simulate_soc(t: float) -> float:
-    hour = (t / 3600) % 24
-    # Battery charges midday, discharges evening
-    return 40 + 40 * math.sin(math.pi * (hour - 6) / 12)
+    print(f"[WATCHDOG] power_states updated: B+={bplus_w:.0f}W B-={bminus_w:.0f}W "
+          f"valid={valid_count} invalid={invalid_count}")
 
 
 def main():
-    print(f"meter-collector starting | simulation={SIMULATION_MODE} | scenario={SCENARIO}")
+    print(f"meter-watchdog starting | poll={POLL_INTERVAL_S}s | db={DB_PATH}")
     while True:
         try:
             db = get_db()
-            if SIMULATION_MODE:
-                collect_simulation(db)
-            else:
-                print("Modbus mode not yet implemented")
+            check_timeouts(db)
             db.close()
         except Exception as e:
             print(f"ERROR: {e}")

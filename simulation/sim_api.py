@@ -285,23 +285,25 @@ async def smartmeter_push(reading: SmartMeterReading, request: Request):
         )
 
         # Recompute power_states from latest measurement per active meter.
-        # 30s window: meters that stopped pushing (HW button off) are excluded
-        # within one push cycle (10s interval × 3 = 30s margin).
+        # STALE entries (written by meter-watchdog for timed-out meters) count
+        # as invalid (0W). No time-window needed — watchdog handles timeouts.
         meter_rows = db.execute("""
             SELECT m.id, p.participant_status,
-                   (SELECT active_power_w FROM measurements
-                    WHERE meter_id = m.id
-                      AND timestamp_utc >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-30 seconds')
-                    ORDER BY timestamp_utc DESC LIMIT 1) AS latest_w
+                   meas.active_power_w AS latest_w,
+                   meas.quality_flag   AS latest_flag
             FROM meters m
             LEFT JOIN participants p ON p.meter_id = m.id AND p.is_active = 1
+            LEFT JOIN measurements meas ON meas.id = (
+                SELECT id FROM measurements WHERE meter_id = m.id
+                ORDER BY timestamp_utc DESC LIMIT 1
+            )
             WHERE m.site_id = ? AND m.is_active = 1
         """, (SITE_ID,)).fetchall()
 
         bplus_w = bminus_w = 0.0
         valid_count = invalid_count = 0
-        for _mid, status, w in meter_rows:
-            if w is None:
+        for _mid, status, w, flag in meter_rows:
+            if w is None or flag == 'STALE':
                 invalid_count += 1
             else:
                 valid_count += 1

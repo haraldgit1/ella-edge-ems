@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS meters (
     address         TEXT,   -- IP:port or serial device
     modbus_unit_id  INTEGER,
     max_load_w      REAL    NOT NULL DEFAULT 4000,  -- simulation slider upper bound
+    push_interval_s INTEGER NOT NULL DEFAULT 10,   -- expected push interval (seconds)
+    push_timeout_s  INTEGER NOT NULL DEFAULT 60,   -- watchdog writes 0W after this silence
     is_active       INTEGER NOT NULL DEFAULT 1,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))

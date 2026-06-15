@@ -19,6 +19,8 @@ const SELECT_SQL = `
     m.serial_number,
     m.cid,
     COALESCE(m.max_load_w, 4000) AS max_load_w,
+    COALESCE(m.push_interval_s, 10) AS push_interval_s,
+    COALESCE(m.push_timeout_s, 60)  AS push_timeout_s,
     m.protocol
   FROM participants p
   LEFT JOIN apartments a ON a.id = p.apartment_id
@@ -76,12 +78,14 @@ export const mdmParticipantRoutes = new Elysia({ prefix: '/api/mdm/participants'
     )
     db.run(
       `INSERT INTO meters(id, site_id, apartment_id, serial_number, cid,
-         max_load_w, protocol, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+         max_load_w, push_interval_s, push_timeout_s, protocol, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [metId, SITE_ID, aptId,
        b.serial_number ?? null,
        b.cid ?? null,
        b.max_load_w ?? 4000,
+       b.push_interval_s ?? 10,
+       b.push_timeout_s ?? 60,
        b.protocol ?? 'SIMULATION'],
     )
     db.run(
@@ -120,11 +124,14 @@ export const mdmParticipantRoutes = new Elysia({ prefix: '/api/mdm/participants'
     if (b.meter_id) {
       db.run(
         `UPDATE meters
-           SET serial_number=?, cid=?, max_load_w=?, protocol=?,
-               updated_at=datetime('now')
+           SET serial_number=?, cid=?, max_load_w=?,
+               push_interval_s=?, push_timeout_s=?,
+               protocol=?, updated_at=datetime('now')
          WHERE id=?`,
         [b.serial_number ?? null, b.cid ?? null,
-         b.max_load_w ?? 4000, b.protocol ?? 'SIMULATION',
+         b.max_load_w ?? 4000,
+         b.push_interval_s ?? 10, b.push_timeout_s ?? 60,
+         b.protocol ?? 'SIMULATION',
          b.meter_id],
       )
     }

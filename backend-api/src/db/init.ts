@@ -44,6 +44,16 @@ export async function initDatabase(): Promise<void> {
     console.log('Migration: added max_load_w to meters')
   } catch { /* already exists */ }
 
+  // Migration: add push_interval_s and push_timeout_s to meters
+  try {
+    db.run('ALTER TABLE meters ADD COLUMN push_interval_s INTEGER NOT NULL DEFAULT 10')
+    console.log('Migration: added push_interval_s to meters')
+  } catch { /* already exists */ }
+  try {
+    db.run('ALTER TABLE meters ADD COLUMN push_timeout_s INTEGER NOT NULL DEFAULT 60')
+    console.log('Migration: added push_timeout_s to meters')
+  } catch { /* already exists */ }
+
   // Migration: create smartmeter_log table
   db.run(`CREATE TABLE IF NOT EXISTS smartmeter_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

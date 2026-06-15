@@ -19,6 +19,8 @@ interface Participant {
   serial_number: string | null
   cid: string | null
   max_load_w: number
+  push_interval_s: number
+  push_timeout_s: number
   protocol: string
 }
 
@@ -34,6 +36,8 @@ const EMPTY: Omit<Participant, 'id' | 'apartment_id' | 'meter_id'> = {
   serial_number: '',
   cid: '',
   max_load_w: 4000,
+  push_interval_s: 10,
+  push_timeout_s: 60,
   protocol: 'SIMULATION',
 }
 
@@ -402,6 +406,22 @@ export default function MdmParticipants() {
                     </div>
                     <p className="text-[10px] text-gray-600 mt-1">Obere Grenze des Leistungs-Schiebereglers in der Simulation</p>
                   </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Push-Intervall">
+                      <div className="flex items-center gap-2">
+                        <Input type="number" value={form.push_interval_s} onChange={v => updateForm({ push_interval_s: parseInt(v) || 10 })} disabled={viewOnly} />
+                        <span className="text-xs text-gray-500 shrink-0">s</span>
+                      </div>
+                      <p className="text-[10px] text-gray-600 mt-1">Normales Sendeintervall</p>
+                    </Field>
+                    <Field label="Timeout">
+                      <div className="flex items-center gap-2">
+                        <Input type="number" value={form.push_timeout_s} onChange={v => updateForm({ push_timeout_s: parseInt(v) || 60 })} disabled={viewOnly} />
+                        <span className="text-xs text-gray-500 shrink-0">s</span>
+                      </div>
+                      <p className="text-[10px] text-gray-600 mt-1">Watchdog → 0W nach Pause</p>
+                    </Field>
+                  </div>
                   <Field label="Protokoll">
                     <Select
                       value={form.protocol}
