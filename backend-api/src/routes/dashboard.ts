@@ -50,6 +50,8 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
     const half = Math.floor(bucketS / 2)
     const overlayMap = new Map<string, number>()
     if (overlayMeterId) {
+      // overlay_meas: pre-filter by meter_id (uses index) + time range → small result set
+      // created_at = server receive time (matches power_states.timestamp_utc, no LDT offset)
       const overlayRows = db.query(`
         WITH ps_buckets AS (
           SELECT
@@ -59,13 +61,19 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
           WHERE site_id = 'site-demo-01'
             AND CAST(strftime('%s', timestamp_utc) AS INTEGER) >= strftime('%s', 'now') - ${rangeS}
           GROUP BY bucket_epoch
+        ),
+        overlay_meas AS (
+          SELECT active_power_w,
+                 CAST(strftime('%s', created_at) AS INTEGER) AS epoch
+          FROM measurements
+          WHERE meter_id = ?
+            AND quality_flag != 'STALE'
+            AND created_at >= datetime('now', '-${rangeS + bucketS} seconds')
         )
         SELECT ps.bucket_ts AS timestamp_utc,
-               ROUND(AVG(m.active_power_w), 1) AS overlay_w
+               ROUND(AVG(om.active_power_w), 1) AS overlay_w
         FROM ps_buckets ps
-        LEFT JOIN measurements m ON m.meter_id = ?
-          AND m.quality_flag != 'STALE'
-          AND CAST(strftime('%s', m.timestamp_utc) AS INTEGER)
+        LEFT JOIN overlay_meas om ON om.epoch
               BETWEEN ps.bucket_epoch - ${half} AND ps.bucket_epoch + ${bucketS - half - 1}
         GROUP BY ps.bucket_ts
         ORDER BY ps.bucket_ts ASC

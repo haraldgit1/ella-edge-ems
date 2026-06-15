@@ -54,6 +54,11 @@ export async function initDatabase(): Promise<void> {
     console.log('Migration: added push_timeout_s to meters')
   } catch { /* already exists */ }
 
+  // Migration: index for overlay query performance (created_at alignment)
+  try {
+    db.run('CREATE INDEX IF NOT EXISTS idx_measurements_meter_created ON measurements(meter_id, created_at DESC)')
+  } catch { /* ignore */ }
+
   // Migration: create smartmeter_log table
   db.run(`CREATE TABLE IF NOT EXISTS smartmeter_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

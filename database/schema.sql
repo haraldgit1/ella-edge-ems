@@ -106,6 +106,9 @@ CREATE TABLE IF NOT EXISTS measurements (
 CREATE INDEX IF NOT EXISTS idx_measurements_meter_time
     ON measurements(meter_id, timestamp_utc DESC);
 
+CREATE INDEX IF NOT EXISTS idx_measurements_meter_created
+    ON measurements(meter_id, created_at DESC);
+
 -- ── Power States ───────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS power_states (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
