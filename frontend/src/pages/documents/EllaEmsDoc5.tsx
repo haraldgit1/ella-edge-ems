@@ -246,7 +246,7 @@ export default function EllaEmsDoc5() {
         </div>
 
         {/* ══ 01 — DIE ANLAGE ══════════════════════════════════════════════════ */}
-        <div className="px-12 py-12 print:px-8 space-y-8">
+        <div className="px-12 py-12 print:px-8 space-y-8 print:break-before-page">
           <SectionLabel n="01">Die Anlage</SectionLabel>
 
           <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-10 items-start">
@@ -285,7 +285,7 @@ export default function EllaEmsDoc5() {
         </div>
 
         {/* ══ 02 — ZÄHLERINFRASTRUKTUR ═════════════════════════════════════════ */}
-        <div className="px-12 py-12 print:px-8 bg-gray-50 dark:bg-[#111] print:bg-gray-50 space-y-8">
+        <div className="px-12 py-12 print:px-8 bg-gray-50 dark:bg-[#111] print:bg-gray-50 space-y-8 print:break-before-page">
           <SectionLabel n="02">Zählerinfrastruktur</SectionLabel>
 
           <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-10 items-center">
@@ -340,7 +340,7 @@ export default function EllaEmsDoc5() {
         </div>
 
         {/* ══ 03 — SOLAREDGE ONE CONTROLLER ════════════════════════════════════ */}
-        <div className="px-12 py-12 print:px-8 space-y-8 print:break-inside-avoid">
+        <div className="px-12 py-12 print:px-8 space-y-8 print:break-before-page">
           <SectionLabel n="03">SolarEdge ONE Controller</SectionLabel>
 
           <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-10 items-start">
@@ -409,7 +409,7 @@ export default function EllaEmsDoc5() {
         </div>
 
         {/* ══ 04 — DREI PERSPEKTIVEN ════════════════════════════════════════════ */}
-        <div className="px-12 py-12 print:px-8 bg-gray-50 dark:bg-[#111] print:bg-gray-50 space-y-10">
+        <div className="px-12 py-12 print:px-8 bg-gray-50 dark:bg-[#111] print:bg-gray-50 space-y-10 print:break-before-page">
           <div className="space-y-2">
             <SectionLabel n="04">Drei Perspektiven. Eine Plattform.</SectionLabel>
             <p className="text-sm font-light text-gray-500 dark:text-gray-400 print:text-gray-600 max-w-xl mt-2" style={{ fontFamily: HN }}>
@@ -440,7 +440,7 @@ export default function EllaEmsDoc5() {
         </div>
 
         {/* ══ 05 — DAS DASHBOARD ═══════════════════════════════════════════════ */}
-        <div className="px-12 py-12 print:px-8 space-y-8">
+        <div className="px-12 py-12 print:px-8 space-y-8 print:break-before-page">
           <SectionLabel n="05">Das Betreiber-Dashboard</SectionLabel>
 
           <Bild
@@ -489,7 +489,7 @@ export default function EllaEmsDoc5() {
         </div>
 
         {/* ══ 07 — TECHNISCHE DATEN ════════════════════════════════════════════ */}
-        <div className="px-12 py-12 print:px-8 space-y-8 print:break-inside-avoid">
+        <div className="px-12 py-12 print:px-8 space-y-8 print:break-before-page">
           <SectionLabel n="07">Technische Daten</SectionLabel>
 
           <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-16">
