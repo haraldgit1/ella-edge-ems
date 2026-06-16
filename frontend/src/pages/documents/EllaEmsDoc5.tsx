@@ -111,7 +111,7 @@ function RegelungsFluss() {
   return (
     <div className="mt-6 print:break-inside-avoid" style={{ fontFamily: HN }}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400 mb-3">Regelungsfluss</p>
-      <div className="flex items-stretch gap-0 flex-wrap md:flex-nowrap">
+      <div className="flex items-stretch gap-0 flex-wrap md:flex-nowrap print:flex-nowrap">
 
         {/* Inputs */}
         <div className="border border-gray-200 dark:border-gray-700 print:border-gray-300 px-4 py-3 space-y-1.5 flex flex-col justify-center min-w-[130px]">
@@ -203,7 +203,7 @@ export default function EllaEmsDoc5() {
                 Lokal. Präzise. Autonom.
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-8 pt-4">
               <p className="text-sm font-light text-gray-500 dark:text-gray-400 print:text-gray-600 leading-relaxed max-w-sm" style={{ fontFamily: HN }}>
                 Ella Edge EMS verteilt selbst erzeugten Solarstrom in Echtzeit an alle
                 teilnehmenden Bewohner — vollautomatisch, cloud-unabhängig und auf die
@@ -237,7 +237,7 @@ export default function EllaEmsDoc5() {
 
         {/* ══ KENNZAHLEN ════════════════════════════════════════════════════════ */}
         <div className="border-t border-b border-gray-100 dark:border-gray-800 print:border-gray-200 mx-12 print:mx-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-100 dark:divide-gray-800 print:divide-gray-200">
+          <div className="grid grid-cols-2 md:grid-cols-4 print:grid-cols-4 divide-x divide-gray-100 dark:divide-gray-800 print:divide-gray-200">
             <Kenn value="5"   unit="s"   label="Regelintervall" />
             <Kenn value="15"  unit="min" label="Settlement-Takt" />
             <Kenn value="100" unit="%"   label="Lokal · Cloud-frei" />
@@ -249,7 +249,7 @@ export default function EllaEmsDoc5() {
         <div className="px-12 py-12 print:px-8 space-y-8">
           <SectionLabel n="01">Die Anlage</SectionLabel>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-10 items-start">
             <div className="space-y-4" style={{ fontFamily: HN }}>
               <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white print:text-black leading-snug">
                 PV-Leistung trifft auf<br />Echtzeit-Intelligenz.
@@ -288,7 +288,7 @@ export default function EllaEmsDoc5() {
         <div className="px-12 py-12 print:px-8 bg-gray-50 dark:bg-[#111] print:bg-gray-50 space-y-8">
           <SectionLabel n="02">Zählerinfrastruktur</SectionLabel>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-10 items-center">
             <div className="space-y-3">
               <div className="overflow-hidden bg-white dark:bg-gray-900 print:bg-white border border-gray-200 dark:border-gray-700 print:border-gray-200">
                 <img src={`${IMG}/smartmeter-landis-gyr.jpg`} alt="Landis+Gyr SmartMeter"
@@ -343,7 +343,7 @@ export default function EllaEmsDoc5() {
         <div className="px-12 py-12 print:px-8 space-y-8 print:break-inside-avoid">
           <SectionLabel n="03">SolarEdge ONE Controller</SectionLabel>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-10 items-start">
 
             {/* Text */}
             <div className="space-y-5" style={{ fontFamily: HN }}>
@@ -417,7 +417,7 @@ export default function EllaEmsDoc5() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 gap-8">
             <Saeule title="Bewohner (B+)" accentColor={B} items={[
               { head: 'Günstiger Solarstrom', body: 'Lokaltarif unter dem Netzpreis — ein fairer Vorteil aus der eigenen Anlage.' },
               { head: 'Kein Aufwand', body: 'Subzähler genügt. Keine App-Steuerung, kein manueller Eingriff.' },
@@ -456,7 +456,7 @@ export default function EllaEmsDoc5() {
         <div className="px-12 py-12 print:px-8 bg-gray-50 dark:bg-[#111] print:bg-gray-50 space-y-8 print:break-before-page">
           <SectionLabel n="06">Simulation & Demo-Modus</SectionLabel>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-10 items-center">
             <div className="space-y-4" style={{ fontFamily: HN }}>
               <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white print:text-black leading-snug">
                 Überzeugend präsentieren —<br />ohne Produktivanlage.
@@ -492,7 +492,7 @@ export default function EllaEmsDoc5() {
         <div className="px-12 py-12 print:px-8 space-y-8 print:break-inside-avoid">
           <SectionLabel n="07">Technische Daten</SectionLabel>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-16">
             <div>
               <SpecRow label="Messintervall"        value="5 Sekunden (Echtzeit-Regelung)" />
               <SpecRow label="Settlement"           value="15 Minuten — AT-Messregeln konform" />
@@ -515,7 +515,7 @@ export default function EllaEmsDoc5() {
 
         {/* ══ FOOTER BAND ══════════════════════════════════════════════════════ */}
         <div className="px-12 py-10 print:px-8 print:bg-[#0a0a0a]" style={{ backgroundColor: '#0a0a0a' }}>
-          <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
+          <div className="flex flex-col md:flex-row print:flex-row items-start md:items-end print:items-end justify-between gap-6">
             <div style={{ fontFamily: HN }}>
               <div style={{ width: 32, height: 2, backgroundColor: B }} className="mb-4" />
               <p className="text-xl font-bold tracking-tight text-white">Ella Edge EMS</p>
