@@ -66,7 +66,7 @@ function Input({ value, onChange, type = 'text', placeholder = '', disabled = fa
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
-      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100
+      className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100
                  placeholder-gray-600 focus:outline-none focus:border-purple-600
                  disabled:opacity-50 disabled:cursor-not-allowed"
     />
@@ -84,7 +84,7 @@ function Select({ value, onChange, options, disabled = false }: {
       value={value}
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
-      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100
+      className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100
                  focus:outline-none focus:border-purple-600
                  disabled:opacity-50 disabled:cursor-not-allowed"
     >
@@ -199,8 +199,8 @@ export default function MdmParticipants() {
 
   const statusBadge = (s: string) =>
     s === 'BPLUS'
-      ? <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-900/40 text-green-400">B+</span>
-      : <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-800 text-gray-400">B–</span>
+      ? <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400">B+</span>
+      : <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">B–</span>
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] gap-3">
@@ -219,25 +219,25 @@ export default function MdmParticipants() {
         <div className={`flex flex-col gap-3 lg:w-80 shrink-0 ${viewOnly ? 'hidden' : ''}`}>
 
           {/* Search */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-3">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Suche</h2>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Suche</h2>
             <input
               type="text"
               placeholder="Name, CID, Seriennummer …"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm
+              className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm
                          placeholder-gray-600 focus:outline-none focus:border-purple-600"
             />
             <div className="flex gap-2">
               <select value={status} onChange={e => setStatus(e.target.value)}
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200 focus:outline-none">
+                className="flex-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:outline-none">
                 <option value="ALL">Alle Status</option>
                 <option value="BPLUS">B+ (Lokal)</option>
                 <option value="BMINUS">B– (Netz)</option>
               </select>
               <select value={active} onChange={e => setActive(e.target.value)}
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200 focus:outline-none">
+                className="flex-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:outline-none">
                 <option value="1">Aktiv</option>
                 <option value="0">Inaktiv</option>
                 <option value="ALL">Alle</option>
@@ -246,10 +246,10 @@ export default function MdmParticipants() {
           </div>
 
           {/* List */}
-          <div className="flex-1 overflow-auto bg-gray-900 rounded-xl border border-gray-800 min-h-0">
+          <div className="flex-1 overflow-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 min-h-0">
             <div className="p-2 space-y-1">
               {list.length === 0 && (
-                <p className="text-xs text-gray-600 p-4 text-center">Keine Treffer</p>
+                <p className="text-xs text-gray-500 dark:text-gray-600 p-4 text-center">Keine Treffer</p>
               )}
               {list.map(p => (
                 <button
@@ -257,12 +257,12 @@ export default function MdmParticipants() {
                   onClick={() => selectRow(p)}
                   className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${
                     selected?.id === p.id
-                      ? 'bg-purple-900/30 border border-purple-700'
-                      : 'hover:bg-gray-800 border border-transparent'
+                      ? 'bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700'
+                      : 'hover:bg-gray-200 dark:hover:bg-gray-800 border border-transparent'
                   } ${!p.is_active ? 'opacity-50' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-gray-200 truncate">{p.display_name}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{p.display_name}</span>
                     {statusBadge(p.participant_status)}
                   </div>
                   <div className="text-[10px] text-gray-500 mt-0.5 font-mono">
@@ -275,27 +275,27 @@ export default function MdmParticipants() {
         </div>
 
         {/* ── Right: Detail ──────────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0 overflow-auto bg-gray-900 rounded-xl border border-gray-800 p-5">
+        <div className="flex-1 min-w-0 overflow-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
 
           {/* Action buttons */}
           <div className="flex items-center gap-2 mb-5 flex-wrap">
-            <span className="text-sm font-semibold text-gray-300 mr-2">
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 mr-2">
               {isNew ? 'Neuanlage' : selected ? selected.display_name : 'Kein Datensatz gewählt'}
             </span>
             {viewOnly ? (
               <div className="flex items-center gap-3 ml-auto">
-                <span className="text-xs text-amber-500 bg-amber-900/20 border border-amber-800 rounded-lg px-3 py-1.5">
+                <span className="text-xs text-amber-600 dark:text-amber-500 bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5">
                   Nur-Ansicht
                 </span>
                 <button
                   onClick={() => navigate('/operator/participants')}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 transition-colors"
+                  className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 >
                   ← Zurück zu Teilnehmer
                 </button>
                 <button
                   onClick={() => navigate(`/mdm/participants`)}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-purple-900/40 text-purple-300 border border-purple-700 hover:bg-purple-900/60 transition-colors"
+                  className="px-3 py-1.5 text-xs rounded-lg bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700 hover:bg-purple-900/60 transition-colors"
                 >
                   Bearbeiten im MDM
                 </button>
@@ -303,19 +303,19 @@ export default function MdmParticipants() {
             ) : (
               <div className="flex gap-2 ml-auto">
                 <button onClick={handleNew}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-purple-900/40 text-purple-300 border border-purple-700 hover:bg-purple-900/60 transition-colors">
+                  className="px-3 py-1.5 text-xs rounded-lg bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700 hover:bg-purple-900/60 transition-colors">
                   Neuanlage
                 </button>
                 <button onClick={handleCopy} disabled={!selected}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 disabled:opacity-40 transition-colors">
+                  className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors">
                   Kopieren
                 </button>
                 <button onClick={handleDelete} disabled={!selected || isNew}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-red-900/30 text-red-400 border border-red-800 hover:bg-red-900/50 disabled:opacity-40 transition-colors">
+                  className="px-3 py-1.5 text-xs rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-900/50 disabled:opacity-40 transition-colors">
                   Löschen
                 </button>
                 <button onClick={handleSave} disabled={!dirty || saving}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-green-900/40 text-green-300 border border-green-700 hover:bg-green-900/60 disabled:opacity-40 transition-colors font-medium">
+                  className="px-3 py-1.5 text-xs rounded-lg bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/60 disabled:opacity-40 transition-colors font-medium">
                   {saving ? 'Speichere …' : 'Speichern'}
                 </button>
               </div>
@@ -323,7 +323,7 @@ export default function MdmParticipants() {
           </div>
 
           {!form ? (
-            <p className="text-gray-600 text-sm text-center mt-16">
+            <p className="text-gray-500 dark:text-gray-600 text-sm text-center mt-16">
               Datensatz aus der Liste wählen oder «Neuanlage» klicken
             </p>
           ) : (
@@ -331,7 +331,7 @@ export default function MdmParticipants() {
 
               {/* Teilnehmer */}
               <div className="space-y-4">
-                <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-widest border-b border-gray-800 pb-2">
+                <h3 className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-2">
                   Teilnehmer
                 </h3>
                 <Field label="Anzeigename *">
@@ -378,7 +378,7 @@ export default function MdmParticipants() {
               {/* Wohnung + Zähler */}
               <div className="space-y-6">
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-widest border-b border-gray-800 pb-2">
+                  <h3 className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-2">
                     Wohnung
                   </h3>
                   <Field label="Wohneinheit *">
@@ -390,7 +390,7 @@ export default function MdmParticipants() {
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest border-b border-gray-800 pb-2">
+                  <h3 className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-2">
                     SmartMeter / Zähler
                   </h3>
                   <Field label="CID (Hardware-Kennung) *">
@@ -404,7 +404,7 @@ export default function MdmParticipants() {
                       <Input type="number" value={form.max_load_w} onChange={v => updateForm({ max_load_w: parseFloat(v) || 4000 })} disabled={viewOnly} />
                       <span className="text-xs text-gray-500 shrink-0">W</span>
                     </div>
-                    <p className="text-[10px] text-gray-600 mt-1">Obere Grenze des Leistungs-Schiebereglers in der Simulation</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-600 mt-1">Obere Grenze des Leistungs-Schiebereglers in der Simulation</p>
                   </Field>
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Push-Intervall">
@@ -412,14 +412,14 @@ export default function MdmParticipants() {
                         <Input type="number" value={form.push_interval_s} onChange={v => updateForm({ push_interval_s: parseInt(v) || 10 })} disabled={viewOnly} />
                         <span className="text-xs text-gray-500 shrink-0">s</span>
                       </div>
-                      <p className="text-[10px] text-gray-600 mt-1">Normales Sendeintervall</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-600 mt-1">Normales Sendeintervall</p>
                     </Field>
                     <Field label="Timeout">
                       <div className="flex items-center gap-2">
                         <Input type="number" value={form.push_timeout_s} onChange={v => updateForm({ push_timeout_s: parseInt(v) || 60 })} disabled={viewOnly} />
                         <span className="text-xs text-gray-500 shrink-0">s</span>
                       </div>
-                      <p className="text-[10px] text-gray-600 mt-1">Watchdog → 0W nach Pause</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-600 mt-1">Watchdog → 0W nach Pause</p>
                     </Field>
                   </div>
                   <Field label="Protokoll">

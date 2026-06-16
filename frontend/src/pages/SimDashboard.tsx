@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api/client'
+import { useTheme } from '../ThemeContext'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -113,11 +114,11 @@ function tw(
 }
 
 function DeviceBox({
-  x, y, w, h, color, children,
-}: { x: number; y: number; w: number; h: number; color: string; children: React.ReactNode }) {
+  x, y, w, h, color, fill, children,
+}: { x: number; y: number; w: number; h: number; color: string; fill: string; children: React.ReactNode }) {
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} rx={8} fill="#111827" stroke={color} strokeWidth={1.5} />
+      <rect x={x} y={y} width={w} height={h} rx={8} fill={fill} stroke={color} strokeWidth={1.5} />
       {children}
     </g>
   )
@@ -151,49 +152,55 @@ function FlowArrow({
 function FlowDiagram({ flow: f, socPct, hplusKw }: {
   flow: Flow; socPct: number; hplusKw: number
 }) {
+  const { isDark } = useTheme()
+  const BOX_FILL   = isDark ? '#111827' : '#f8fafc'
+  const TRACK_FILL = isDark ? '#1f2937' : '#e2e8f0'
+  const TXT_MAIN   = isDark ? '#f9fafb' : '#111827'
+  const TXT_DIM    = isDark ? '#9ca3af' : '#6b7280'
+
   const batMode  = f.battery_charge_w > 0 ? 'charge' : f.battery_discharge_w > 0 ? 'discharge' : 'idle'
   const batPower = batMode === 'charge' ? f.battery_charge_w : f.battery_discharge_w
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
       <svg viewBox="0 0 580 320" className="w-full" style={{ maxHeight: 380 }}>
         <style>{`@keyframes flowAnim{from{stroke-dashoffset:13}to{stroke-dashoffset:0}}`}</style>
 
         {/* ── Source boxes (left) ── */}
-        <DeviceBox x={10} y={10} w={115} h={60} color={C_YELLOW}>
+        <DeviceBox fill={BOX_FILL} x={10} y={10} w={115} h={60} color={C_YELLOW}>
           {tw(67, 28, '☀  Photovoltaik', 10, C_YELLOW)}
-          {tw(67, 48, fmtW(f.pv_w), 13, '#f9fafb')}
+          {tw(67, 48, fmtW(f.pv_w), 13, TXT_MAIN)}
         </DeviceBox>
 
-        <DeviceBox x={10} y={112} w={115} h={62} color={C_BLUE}>
+        <DeviceBox fill={BOX_FILL} x={10} y={112} w={115} h={62} color={C_BLUE}>
           {tw(67, 129, '⚡ Batterie', 10, C_BLUE)}
-          {tw(67, 144, `SOC  ${socPct.toFixed(0)} %`, 11, '#f9fafb')}
+          {tw(67, 144, `SOC  ${socPct.toFixed(0)} %`, 11, TXT_MAIN)}
           {tw(67, 160,
             batMode === 'idle' ? 'Standby'
               : `${batMode === 'charge' ? '↑ Laden' : '↓ Entladen'}  ${fmtW(batPower)}`,
             9, batMode === 'idle' ? C_GRAY : C_BLUE)}
         </DeviceBox>
 
-        <DeviceBox x={10} y={212} w={115} h={62} color={C_RED}>
+        <DeviceBox fill={BOX_FILL} x={10} y={212} w={115} h={62} color={C_RED}>
           {tw(67, 229, '⚡ Stromnetz', 10, C_RED)}
           {tw(67, 245,
             f.grid_import_w > 0 ? `↓ ${fmtW(f.grid_import_w)}`
               : f.grid_export_w > 0 ? `↑ ${fmtW(f.grid_export_w)}` : 'Standby',
-            12, '#f9fafb')}
+            12, TXT_MAIN)}
           {tw(67, 261,
             f.grid_import_w > 0 ? 'Import' : f.grid_export_w > 0 ? 'Export PV' : '',
             9, f.grid_export_w > 0 ? C_AMBER : C_RED)}
         </DeviceBox>
 
         {/* ── EMS box (center) ── */}
-        <DeviceBox x={192} y={72} w={180} h={158} color={C_GREEN}>
+        <DeviceBox fill={BOX_FILL} x={192} y={72} w={180} h={158} color={C_GREEN}>
           {tw(282, 96,  'ELLA EMS', 12, C_GREEN)}
           {tw(282, 113, '+ Wechselrichter', 9, C_GRAY)}
-          <rect x={208} y={128} width={148} height={10} rx={5} fill="#1f2937" />
+          <rect x={208} y={128} width={148} height={10} rx={5} fill={TRACK_FILL} />
           <rect x={208} y={128}
             width={Math.round(148 * Math.min(1, f.local_coverage_pct / 100))}
             height={10} rx={5} fill={C_GREEN} />
-          {tw(282, 151, `Deckungsgrad: ${f.local_coverage_pct.toFixed(1)} %`, 9, '#9ca3af')}
+          {tw(282, 151, `Deckungsgrad: ${f.local_coverage_pct.toFixed(1)} %`, 9, TXT_DIM)}
           {tw(282, 167, `B+/H+ Bedarf:  ${fmtW(f.bplus_demand_w)}`, 9, C_GRAY)}
           {tw(282, 183, `Lokal:  ${fmtW(f.local_supply_w)}`, 9, C_GREEN)}
           {tw(282, 199,
@@ -204,24 +211,24 @@ function FlowDiagram({ flow: f, socPct, hplusKw }: {
         </DeviceBox>
 
         {/* ── Output boxes (right) ── */}
-        <DeviceBox x={428} y={12}  w={144} h={52} color={C_GREEN}>
+        <DeviceBox fill={BOX_FILL} x={428} y={12}  w={144} h={52} color={C_GREEN}>
           {tw(500, 30, 'B+  Lokal versorgt', 9, C_GREEN)}
-          {tw(500, 48, fmtW(f.local_supply_w), 13, '#f9fafb')}
+          {tw(500, 48, fmtW(f.local_supply_w), 13, TXT_MAIN)}
         </DeviceBox>
 
-        <DeviceBox x={428} y={80}  w={144} h={52} color={f.grid_to_bplus_w > 0 ? C_RED : C_DIM}>
+        <DeviceBox fill={BOX_FILL} x={428} y={80}  w={144} h={52} color={f.grid_to_bplus_w > 0 ? C_RED : C_DIM}>
           {tw(500, 98,  'B+  Netz-Ergänzung', 9, f.grid_to_bplus_w > 0 ? C_RED : C_GRAY)}
-          {tw(500, 116, fmtW(f.grid_to_bplus_w), 13, '#f9fafb')}
+          {tw(500, 116, fmtW(f.grid_to_bplus_w), 13, TXT_MAIN)}
         </DeviceBox>
 
-        <DeviceBox x={428} y={148} w={144} h={52} color={C_GRAY}>
+        <DeviceBox fill={BOX_FILL} x={428} y={148} w={144} h={52} color={C_GRAY}>
           {tw(500, 166, 'B–  Netz-Versorgung', 9, C_GRAY)}
-          {tw(500, 184, fmtW(f.bminus_demand_w), 13, '#f9fafb')}
+          {tw(500, 184, fmtW(f.bminus_demand_w), 13, TXT_MAIN)}
         </DeviceBox>
 
-        <DeviceBox x={428} y={216} w={144} h={52} color={hplusKw > 0 ? C_TEAL : C_DIM}>
+        <DeviceBox fill={BOX_FILL} x={428} y={216} w={144} h={52} color={hplusKw > 0 ? C_TEAL : C_DIM}>
           {tw(500, 234, '♨  H+ Wärmepumpe', 9, hplusKw > 0 ? C_TEAL : C_GRAY)}
-          {tw(500, 252, fmtW(hplusKw * 1000), 13, '#f9fafb')}
+          {tw(500, 252, fmtW(hplusKw * 1000), 13, TXT_MAIN)}
         </DeviceBox>
 
         {/* ── Sources → EMS ── */}
@@ -263,17 +270,17 @@ function MeterCard({
 
   return (
     <div className={`rounded-xl border p-3 space-y-2 ${
-      meter.is_bplus ? 'border-green-800 bg-green-950/20' : 'border-gray-700 bg-gray-900'
+      meter.is_bplus ? 'border-green-200 dark:border-green-800 bg-green-950/20' : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900'
     }`}>
       <div className="flex items-center justify-between gap-1">
-        <span className="text-xs font-medium text-gray-200 truncate">{meter.name}</span>
+        <span className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{meter.name}</span>
         <button
           onClick={() => onChange({ ...meter, is_bplus: !meter.is_bplus })}
           title="B+ Teilnehmer umschalten"
           className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-bold border transition-colors ${
             meter.is_bplus
-              ? 'bg-green-900/40 text-green-400 border-green-700'
-              : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500'
+              ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 border-green-300 dark:border-green-700'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
           }`}
         >
           B+
@@ -285,8 +292,8 @@ function MeterCard({
           <span>Grundlast</span>
           <span className="font-mono">
             {extras > 0
-              ? <span className="text-white font-bold">{(meter.load_kw + extras).toFixed(2)} kW</span>
-              : <span className="text-gray-300">{meter.load_kw.toFixed(2)} kW</span>
+              ? <span className="text-gray-900 dark:text-white font-bold">{(meter.load_kw + extras).toFixed(2)} kW</span>
+              : <span className="text-gray-600 dark:text-gray-300">{meter.load_kw.toFixed(2)} kW</span>
             }
           </span>
         </div>
@@ -308,7 +315,7 @@ function MeterCard({
               onChange={e => onChange({ ...meter, ac_on: e.target.checked })}
               className="w-3 h-3 accent-cyan-500"
             />
-            <span className="text-[10px] text-cyan-400">❄ Klimaanlage  +1 kW</span>
+            <span className="text-[10px] text-cyan-600 dark:text-cyan-400">❄ Klimaanlage  +1 kW</span>
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer select-none">
             <input
@@ -317,24 +324,24 @@ function MeterCard({
               onChange={e => onChange({ ...meter, wallbox_on: e.target.checked })}
               className="w-3 h-3 accent-purple-400"
             />
-            <span className="text-[10px] text-purple-400">⚡ Wallbox  +11 kW</span>
+            <span className="text-[10px] text-purple-600 dark:text-purple-400">⚡ Wallbox  +11 kW</span>
           </label>
         </div>
       )}
 
       {meter.is_bplus ? (
         <>
-          <div className="flex h-2 rounded-full overflow-hidden bg-gray-800">
+          <div className="flex h-2 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800">
             <div className="bg-green-500 transition-all duration-300" style={{ width: `${pct * 100}%` }} />
             <div className="bg-red-500 transition-all duration-300"   style={{ width: `${(1 - pct) * 100}%` }} />
           </div>
           <div className="flex justify-between text-[9px]">
-            <span className="text-green-500">{fmtW(localW)} lokal</span>
-            <span className="text-red-400">{fmtW(gridW)} Netz</span>
+            <span className="text-green-600 dark:text-green-500">{fmtW(localW)} lokal</span>
+            <span className="text-red-600 dark:text-red-400">{fmtW(gridW)} Netz</span>
           </div>
         </>
       ) : (
-        <div className="text-[10px] text-red-400">{fmtW(flowW)} vom Netz</div>
+        <div className="text-[10px] text-red-600 dark:text-red-400">{fmtW(flowW)} vom Netz</div>
       )}
 
       {/* Hardware send toggle */}
@@ -344,7 +351,7 @@ function MeterCard({
         className={`w-full text-[10px] py-1 rounded-lg border font-medium transition-colors ${
           hwSend
             ? 'bg-orange-900/40 text-orange-300 border-orange-700 animate-pulse'
-            : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500 hover:text-gray-300'
+            : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-300'
         }`}
       >
         {hwSend ? `HW aktiv  CID ${meter.cid}` : 'Hardware senden'}
@@ -562,8 +569,8 @@ export default function SimDashboard() {
   const hplusLocalW = meterLocalW(hplusMeter)
   const hplusGridW  = Math.max(0, hplusKw * 1000 - hplusLocalW)
 
-  const covColor = flow.local_coverage_pct >= 80 ? 'text-green-400'
-    : flow.local_coverage_pct >= 40 ? 'text-amber-400' : 'text-red-400'
+  const covColor = flow.local_coverage_pct >= 80 ? 'text-green-600 dark:text-green-400'
+    : flow.local_coverage_pct >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
 
   return (
     <div className="space-y-5">
@@ -577,15 +584,15 @@ export default function SimDashboard() {
 
         {/* EMS Sync toggle */}
         <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-colors ${
-          syncEms ? 'bg-green-950/30 border-green-700' : 'bg-gray-900 border-gray-700'
+          syncEms ? 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700' : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700'
         }`}>
           <div className="text-xs space-y-0.5">
-            <div className="font-medium text-gray-200">EMS synchronisieren</div>
+            <div className="font-medium text-gray-700 dark:text-gray-200">EMS synchronisieren</div>
             <div className="text-gray-500">
               {dbReady === null ? 'Prüfe Datenbank…' : dbReady ? 'Datenbank erreichbar' : 'DB nicht verfügbar'}
             </div>
             {lastPush && (
-              <div className={lastPush.ok ? 'text-green-400' : 'text-red-400'}>
+              <div className={lastPush.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                 {lastPush.ok ? `✓ Push ${lastPush.ts ? new Date(lastPush.ts).toLocaleTimeString('de-AT') : ''}` : `✗ ${lastPush.error}`}
               </div>
             )}
@@ -595,7 +602,7 @@ export default function SimDashboard() {
             disabled={!dbReady}
             title={dbReady ? 'Simulation → EMS DB ein/ausschalten' : 'EMS-Datenbank nicht erreichbar'}
             className={`relative w-12 h-6 rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-              syncEms ? 'bg-green-500 border-green-400' : 'bg-gray-700 border-gray-600'
+              syncEms ? 'bg-green-500 border-green-400' : 'bg-gray-200 dark:bg-gray-700 border-gray-400 dark:border-gray-600'
             }`}
           >
             <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -606,7 +613,7 @@ export default function SimDashboard() {
 
         <button
           onClick={reset}
-          className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700 transition-colors"
+          className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-300 dark:border-gray-700 transition-colors"
         >
           Zurücksetzen
         </button>
@@ -620,11 +627,11 @@ export default function SimDashboard() {
             <div>
               Hardware-Push aktiv für{' '}
               <strong>{[...hwSend].map(mid => meters.find(m => m.id === mid)?.name ?? mid).join(', ')}</strong>
-              {' '}— sendet alle 10 s an <code className="bg-gray-900 px-1 rounded text-orange-200">/ella_ems/smartmeter</code>.
+              {' '}— sendet alle 10 s an <code className="bg-white dark:bg-gray-900 px-1 rounded text-orange-200">/ella_ems/smartmeter</code>.
             </div>
-            <div className="text-amber-400">
+            <div className="text-amber-600 dark:text-amber-400">
               ⚠ Für saubere Messwerte: meter-collector stoppen →{' '}
-              <code className="bg-gray-900 px-1 rounded text-amber-300">docker compose stop meter-collector</code>
+              <code className="bg-white dark:bg-gray-900 px-1 rounded text-amber-700 dark:text-amber-300">docker compose stop meter-collector</code>
             </div>
           </div>
         </div>
@@ -632,16 +639,16 @@ export default function SimDashboard() {
 
       {/* Sync hint */}
       {syncEms && (
-        <div className="flex items-start gap-2 text-xs bg-green-950/20 border border-green-800 rounded-lg px-3 py-2.5 text-green-300">
-          <span className="shrink-0 text-green-400 font-bold">↗</span>
+        <div className="flex items-start gap-2 text-xs bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2.5 text-green-700 dark:text-green-300">
+          <span className="shrink-0 text-green-600 dark:text-green-400 font-bold">↗</span>
           <div className="space-y-1">
             <span>
               Simulation schreibt alle {intervalS}s in die EMS-Datenbank.
               Das <strong>EMS-Dashboard</strong> und die <strong>Gerätestatus</strong>-Seite zeigen jetzt deine Simulation.
             </span>
-            <div className="text-amber-400">
+            <div className="text-amber-600 dark:text-amber-400">
               ⚠ Für saubere Daten: meter-collector stoppen →{' '}
-              <code className="bg-gray-900 px-1 rounded text-amber-300">docker compose stop meter-collector</code>
+              <code className="bg-white dark:bg-gray-900 px-1 rounded text-amber-700 dark:text-amber-300">docker compose stop meter-collector</code>
             </div>
           </div>
         </div>
@@ -651,17 +658,17 @@ export default function SimDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Deckungsgrad B+/H+', value: `${flow.local_coverage_pct.toFixed(1)} %`, cls: covColor },
-          { label: 'PV-Ertrag',          value: fmtW(flow.pv_w),         cls: 'text-yellow-400' },
-          { label: 'Netz-Import',        value: fmtW(flow.grid_import_w), cls: 'text-red-400' },
+          { label: 'PV-Ertrag',          value: fmtW(flow.pv_w),         cls: 'text-yellow-600 dark:text-yellow-400' },
+          { label: 'Netz-Import',        value: fmtW(flow.grid_import_w), cls: 'text-red-600 dark:text-red-400' },
           {
             label: 'Batterie',
             value: flow.battery_charge_w > 0    ? `↑ ${fmtW(flow.battery_charge_w)}`
                  : flow.battery_discharge_w > 0 ? `↓ ${fmtW(flow.battery_discharge_w)}`
                  : 'Standby',
-            cls: 'text-blue-400',
+            cls: 'text-blue-600 dark:text-blue-400',
           },
         ].map(s => (
-          <div key={s.label} className="bg-gray-900 rounded-xl border border-gray-800 px-4 py-3">
+          <div key={s.label} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3">
             <div className="text-xs text-gray-500">{s.label}</div>
             <div className={`text-lg font-bold font-mono mt-0.5 ${s.cls}`}>{s.value}</div>
           </div>
@@ -673,19 +680,19 @@ export default function SimDashboard() {
 
         {/* Source & simulation controls */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-5">
-            <p className="text-sm font-medium text-gray-300">Energiequellen</p>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-5">
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Energiequellen</p>
 
             {/* PV */}
             <div className="space-y-1">
               <div className="flex justify-between text-xs">
-                <span className="text-yellow-400 font-medium">☀  Photovoltaik</span>
-                <span className="text-gray-200 font-mono">{pvKw.toFixed(1)} kW</span>
+                <span className="text-yellow-600 dark:text-yellow-400 font-medium">☀  Photovoltaik</span>
+                <span className="text-gray-700 dark:text-gray-200 font-mono">{pvKw.toFixed(1)} kW</span>
               </div>
               <input type="range" min={0} max={20} step={0.1} value={pvKw}
                 onChange={e => setPvKw(parseFloat(e.target.value))}
                 className="w-full h-2 rounded-full accent-yellow-400 cursor-pointer" />
-              <div className="flex justify-between text-[10px] text-gray-600">
+              <div className="flex justify-between text-[10px] text-gray-500 dark:text-gray-600">
                 <span>0 kW</span><span>20 kW</span>
               </div>
             </div>
@@ -693,48 +700,48 @@ export default function SimDashboard() {
             {/* Battery SOC */}
             <div className="space-y-1">
               <div className="flex justify-between text-xs">
-                <span className="text-blue-400 font-medium">⚡ Batterie SOC</span>
-                <span className="text-gray-200 font-mono">{socPct.toFixed(1)} %</span>
+                <span className="text-blue-600 dark:text-blue-400 font-medium">⚡ Batterie SOC</span>
+                <span className="text-gray-700 dark:text-gray-200 font-mono">{socPct.toFixed(1)} %</span>
               </div>
               <input type="range" min={0} max={100} step={1} value={socPct}
                 onChange={e => setSocPct(parseFloat(e.target.value))}
                 className="w-full h-2 rounded-full accent-blue-500 cursor-pointer" />
-              <div className="flex h-2.5 bg-gray-800 rounded-full overflow-hidden">
+              <div className="flex h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-200" style={{
                   width: `${socPct}%`,
                   backgroundColor: socPct > 50 ? '#3b82f6' : socPct > 20 ? '#f59e0b' : '#ef4444',
                 }} />
               </div>
               <div className="flex justify-between text-[10px] text-gray-500">
-                <span className="text-gray-600">Schieber = Startwert / Reset</span>
+                <span className="text-gray-500 dark:text-gray-600">Schieber = Startwert / Reset</span>
                 {socPct <= 20
-                  ? <span className="text-red-400">Entladen gesperrt</span>
+                  ? <span className="text-red-600 dark:text-red-400">Entladen gesperrt</span>
                   : flow.battery_charge_w > 0
-                    ? <span className="text-blue-400">↑ lädt</span>
+                    ? <span className="text-blue-600 dark:text-blue-400">↑ lädt</span>
                     : flow.battery_discharge_w > 0
-                      ? <span className="text-amber-400">↓ entlädt</span>
-                      : <span className="text-gray-600">Standby</span>
+                      ? <span className="text-amber-600 dark:text-amber-400">↓ entlädt</span>
+                      : <span className="text-gray-500 dark:text-gray-600">Standby</span>
                 }
               </div>
             </div>
 
             {/* Interval */}
             <div className="space-y-2">
-              <p className="text-xs text-gray-400 font-medium">Animations-Intervall</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Animations-Intervall</p>
               <div className="flex gap-2">
                 {[1, 2, 3, 5].map(s => (
                   <button key={s} onClick={() => setIntervalS(s)}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                       intervalS === s
-                        ? 'bg-green-900/30 text-green-400 border-green-700'
-                        : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-600'
+                        ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-300 dark:border-green-700'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600'
                     }`}
                   >
                     {s}s
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-gray-600">Tick #{tick}</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-600">Tick #{tick}</p>
             </div>
           </div>
         </div>
@@ -747,7 +754,7 @@ export default function SimDashboard() {
 
       {/* Bewohner Meter cards */}
       <div>
-        <p className="text-sm font-medium text-gray-400 mb-3">Smartmeter der Bewohner</p>
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Smartmeter der Bewohner</p>
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {meters.map((m, i) => (
             <MeterCard
@@ -764,16 +771,16 @@ export default function SimDashboard() {
 
       {/* H+ Wärmepumpe (Hausverwaltung) */}
       <div>
-        <p className="text-sm font-medium text-gray-400 mb-3">Hausverwaltung – Wärmepumpe (H+)</p>
-        <div className="bg-gray-900 rounded-xl border border-teal-800 p-4">
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Hausverwaltung – Wärmepumpe (H+)</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-teal-800 p-4">
           <div className="flex flex-wrap items-start gap-6">
 
             {/* Slider */}
             <div className="flex-1 min-w-56 space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-teal-400 font-medium">♨  Wohneinheiten aktiv</span>
-                <span className="text-gray-200 font-mono">
-                  {hplusUnits} WE × 1,5 kW = <strong className="text-white">{hplusKw.toFixed(1)} kW</strong>
+                <span className="text-teal-600 dark:text-teal-400 font-medium">♨  Wohneinheiten aktiv</span>
+                <span className="text-gray-700 dark:text-gray-200 font-mono">
+                  {hplusUnits} WE × 1,5 kW = <strong className="text-gray-900 dark:text-white">{hplusKw.toFixed(1)} kW</strong>
                 </span>
               </div>
               <input
@@ -782,30 +789,30 @@ export default function SimDashboard() {
                 onChange={e => setHplusUnits(parseInt(e.target.value))}
                 className="w-full h-2 rounded-full accent-teal-500 cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-gray-600">
+              <div className="flex justify-between text-[10px] text-gray-500 dark:text-gray-600">
                 {[0,1,2,3,4,5,6].map(n => <span key={n}>{n}</span>)}
               </div>
-              <p className="text-[10px] text-gray-600">0 = Wärmepumpe aus  ·  6 = alle Wohneinheiten</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-600">0 = Wärmepumpe aus  ·  6 = alle Wohneinheiten</p>
             </div>
 
             {/* Live values */}
             <div className="flex gap-4 text-xs flex-wrap">
-              <div className="bg-gray-800 rounded-lg px-3 py-2 min-w-28">
+              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2 min-w-28">
                 <div className="text-gray-500 text-[10px] mb-0.5">H+ Bedarf</div>
-                <div className="text-teal-400 font-bold font-mono">{fmtW(hplusKw * 1000)}</div>
+                <div className="text-teal-600 dark:text-teal-400 font-bold font-mono">{fmtW(hplusKw * 1000)}</div>
               </div>
-              <div className="bg-gray-800 rounded-lg px-3 py-2 min-w-28">
+              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2 min-w-28">
                 <div className="text-gray-500 text-[10px] mb-0.5">Lokal</div>
-                <div className="text-green-400 font-bold font-mono">{fmtW(hplusLocalW)}</div>
+                <div className="text-green-600 dark:text-green-400 font-bold font-mono">{fmtW(hplusLocalW)}</div>
               </div>
-              <div className="bg-gray-800 rounded-lg px-3 py-2 min-w-28">
+              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2 min-w-28">
                 <div className="text-gray-500 text-[10px] mb-0.5">Netz-Zukauf</div>
-                <div className="text-red-400 font-bold font-mono">{fmtW(hplusGridW)}</div>
+                <div className="text-red-600 dark:text-red-400 font-bold font-mono">{fmtW(hplusGridW)}</div>
               </div>
               {hplusKw > 0 && (
-                <div className="bg-gray-800 rounded-lg px-3 py-2 min-w-28">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2 min-w-28">
                   <div className="text-gray-500 text-[10px] mb-0.5">Deckungsgrad</div>
-                  <div className="text-teal-400 font-bold font-mono">
+                  <div className="text-teal-600 dark:text-teal-400 font-bold font-mono">
                     {hplusKw > 0 ? `${Math.round(hplusLocalW / (hplusKw * 1000) * 100)} %` : '—'}
                   </div>
                 </div>
@@ -816,9 +823,9 @@ export default function SimDashboard() {
       </div>
 
       {/* Legend */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
-        <p className="text-xs font-medium text-gray-400 mb-3">Legende Energiefluss</p>
-        <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3">Legende Energiefluss</p>
+        <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
           {[
             { color: C_YELLOW, label: 'Photovoltaik' },
             { color: C_GREEN,  label: 'Lokale Versorgung B+' },

@@ -9,7 +9,7 @@ function DocImage({
 }) {
   return (
     <figure className="space-y-3">
-      <div className="rounded-xl overflow-hidden border border-gray-700 bg-gray-800 print:border-gray-300">
+      <div className="rounded-xl overflow-hidden border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 print:border-gray-300">
         <img
           src={src}
           alt={alt}
@@ -23,7 +23,7 @@ function DocImage({
         />
         {/* Platzhalter wenn Bild fehlt */}
         <div
-          className="hidden h-48 items-center justify-center text-gray-600 text-sm flex-col gap-2"
+          className="hidden h-48 items-center justify-center text-gray-500 dark:text-gray-600 text-sm flex-col gap-2"
           aria-hidden
         >
           <span className="text-3xl">🖼</span>
@@ -32,10 +32,10 @@ function DocImage({
         </div>
       </div>
       <figcaption className="space-y-1">
-        <p className="text-xs font-semibold text-gray-400 print:text-gray-500 uppercase tracking-wide">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 print:text-gray-500 uppercase tracking-wide">
           {caption}
         </p>
-        <p className="text-sm text-gray-300 print:text-gray-700 leading-relaxed">
+        <p className="text-sm text-gray-600 dark:text-gray-300 print:text-gray-700 leading-relaxed">
           {description}
         </p>
       </figcaption>
@@ -58,10 +58,10 @@ export default function EllaEmsDoc2() {
           ← Dokumente
         </button>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-600 font-mono">Ella_EMS_Doc2 · Entwurf</span>
+          <span className="text-xs text-gray-500 dark:text-gray-600 font-mono">Ella_EMS_Doc2 · Entwurf</span>
           <button
             onClick={() => window.print()}
-            className="text-xs bg-green-900/40 border border-green-700 text-green-400 px-3 py-1.5 rounded-lg hover:bg-green-900/60 transition-colors"
+            className="text-xs bg-green-100 dark:bg-green-900/40 border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 px-3 py-1.5 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/60 transition-colors"
           >
             Drucken / PDF
           </button>
@@ -69,17 +69,17 @@ export default function EllaEmsDoc2() {
       </div>
 
       {/* Dokument-Body */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 print:p-0 print:bg-white print:border-0 print:text-black space-y-10">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 print:p-0 print:bg-white print:border-0 print:text-black space-y-10">
 
         {/* Header */}
-        <div className="text-center space-y-3 pb-6 border-b border-gray-800 print:border-gray-300">
-          <div className="text-xs font-mono text-green-500 print:text-green-700 tracking-widest uppercase">
+        <div className="text-center space-y-3 pb-6 border-b border-gray-200 dark:border-gray-800 print:border-gray-300">
+          <div className="text-xs font-mono text-green-600 dark:text-green-500 print:text-green-700 tracking-widest uppercase">
             Produkt-Präsentation · Screenshots & Referenzbilder
           </div>
-          <h1 className="text-3xl font-bold text-white print:text-black leading-tight">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white print:text-black leading-tight">
             Ella Edge EMS — Das System im Überblick
           </h1>
-          <p className="text-sm text-gray-400 print:text-gray-600 max-w-2xl mx-auto">
+          <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600 max-w-2xl mx-auto">
             Visuelle Übersicht des Ella Edge EMS: Betreiber-Dashboard, Simulationsumgebung,
             Systemkomponenten und reale Installationsbeispiele.
           </p>
@@ -87,11 +87,11 @@ export default function EllaEmsDoc2() {
 
         {/* Abschnitt 1: PV-Anlage */}
         <section className="space-y-6 print:break-inside-avoid">
-          <div className="border-l-4 border-green-600 pl-4">
-            <h2 className="text-lg font-bold text-white print:text-black">
+          <div className="border-l-4 border-green-400 dark:border-green-600 pl-4">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white print:text-black">
               1 &nbsp; Die Basis: Photovoltaikanlage mit Batteriespeicher
             </h2>
-            <p className="text-sm text-gray-400 print:text-gray-600 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600 mt-1">
               Ella Edge EMS setzt auf einer bestehenden oder neu geplanten PV-Anlage mit
               Wechselrichter und Batteriespeicher auf — ohne Eingriff in die bestehende
               Elektroinstallation der Wohneinheiten.
@@ -112,11 +112,11 @@ export default function EllaEmsDoc2() {
 
         {/* Abschnitt 2: SmartMeter */}
         <section className="space-y-6 print:break-inside-avoid">
-          <div className="border-l-4 border-blue-600 pl-4">
-            <h2 className="text-lg font-bold text-white print:text-black">
+          <div className="border-l-4 border-blue-400 dark:border-blue-600 pl-4">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white print:text-black">
               2 &nbsp; Zählerinfrastruktur: Landis+Gyr SmartMeter
             </h2>
-            <p className="text-sm text-gray-400 print:text-gray-600 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600 mt-1">
               Je Wohneinheit wird ein geeichter SmartMeter installiert, der alle 10 Sekunden
               den Momentanverbrauch per Hardware-Push an Ella Edge EMS meldet. Kein Cloud-Weg,
               kein Polling — direkter Push in das lokale EMS.
@@ -138,10 +138,10 @@ export default function EllaEmsDoc2() {
         {/* Abschnitt 3: Betreiber-Dashboard */}
         <section className="space-y-6 print:break-inside-avoid">
           <div className="border-l-4 border-amber-500 pl-4">
-            <h2 className="text-lg font-bold text-white print:text-black">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white print:text-black">
               3 &nbsp; Betreiber-Dashboard — Echtzeit-Übersicht
             </h2>
-            <p className="text-sm text-gray-400 print:text-gray-600 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600 mt-1">
               Das Betreiber-Dashboard gibt der Hausverwaltung einen vollständigen Echtzeit-Überblick
               über Energieflüsse, Batteriezustand, Netz-Bezug und aktive Alarme — jederzeit
               im Browser, ohne App-Installation.
@@ -165,10 +165,10 @@ export default function EllaEmsDoc2() {
         {/* Abschnitt 4: Simulation */}
         <section className="space-y-6 print:break-inside-avoid">
           <div className="border-l-4 border-purple-500 pl-4">
-            <h2 className="text-lg font-bold text-white print:text-black">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white print:text-black">
               4 &nbsp; Simulationsumgebung — Demo ohne Produktivanlage
             </h2>
-            <p className="text-sm text-gray-400 print:text-gray-600 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600 mt-1">
               Ella Edge EMS enthält eine vollständige Simulationsumgebung: PV-Leistung, Batteriezustand
               und Einzelverbrauch aller Bewohner werden per Slider konfiguriert und live in die
               EMS-Datenbank geschrieben — ideal für Verkaufspräsentationen und Schulungen.
@@ -191,30 +191,30 @@ export default function EllaEmsDoc2() {
         </section>
 
         {/* Bildhinweis für Redaktion */}
-        <div className="print:hidden bg-amber-950/20 border border-amber-800 rounded-xl p-4 text-sm space-y-2">
-          <p className="text-amber-400 font-medium">Bildverwaltung</p>
-          <p className="text-gray-400">
-            Bilder in <code className="bg-gray-800 px-1.5 py-0.5 rounded text-amber-300 text-xs">docs/images/</code> ablegen
+        <div className="print:hidden bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm space-y-2">
+          <p className="text-amber-600 dark:text-amber-400 font-medium">Bildverwaltung</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            Bilder in <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-amber-700 dark:text-amber-300 text-xs">docs/images/</code> ablegen
             — sofort sichtbar ohne Rebuild oder Neustart:
           </p>
           <ul className="text-xs text-gray-500 space-y-1 font-mono">
-            <li>docs/images/<span className="text-green-400">dashboard-operator.png</span></li>
-            <li>docs/images/<span className="text-green-400">dashboard-simulation.png</span></li>
-            <li>docs/images/<span className="text-green-400">pv-anlage.jpg</span></li>
-            <li>docs/images/<span className="text-green-400">smartmeter-landis-gyr.jpg</span></li>
+            <li>docs/images/<span className="text-green-600 dark:text-green-400">dashboard-operator.png</span></li>
+            <li>docs/images/<span className="text-green-600 dark:text-green-400">dashboard-simulation.png</span></li>
+            <li>docs/images/<span className="text-green-600 dark:text-green-400">pv-anlage.jpg</span></li>
+            <li>docs/images/<span className="text-green-600 dark:text-green-400">smartmeter-landis-gyr.jpg</span></li>
           </ul>
-          <p className="text-gray-600 text-xs">
+          <p className="text-gray-500 dark:text-gray-600 text-xs">
             Prod: <code>scp bild.png ella@www.sailersoft.com:~/app/ella_ems/docs/images/</code>
           </p>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-800 print:border-gray-300 pt-5 text-center space-y-1">
-          <p className="font-bold text-gray-200 print:text-black">Ella Edge EMS</p>
+        <div className="border-t border-gray-200 dark:border-gray-800 print:border-gray-300 pt-5 text-center space-y-1">
+          <p className="font-bold text-gray-700 dark:text-gray-200 print:text-black">Ella Edge EMS</p>
           <p className="text-xs text-gray-500 print:text-gray-500">
             Entwickelt von Sailer Engineering · www.sailersoft.com
           </p>
-          <p className="text-[10px] text-gray-700 print:text-gray-400 mt-2">
+          <p className="text-[10px] text-gray-400 dark:text-gray-700 print:text-gray-400 mt-2">
             Ella_EMS_Doc2 · Entwurf · Alle Angaben ohne Gewähr · Änderungen vorbehalten
           </p>
         </div>

@@ -35,10 +35,10 @@ const REPORT_TYPES = [
 ]
 
 function fmtBadge(fmt: string) {
-  if (fmt === 'PDF') return 'bg-red-900/30 text-red-400 border-red-800'
-  if (fmt === 'CSV') return 'bg-green-900/30 text-green-400 border-green-800'
-  if (fmt === 'ZIP') return 'bg-blue-900/30 text-blue-400 border-blue-800'
-  return 'bg-gray-800 text-gray-400 border-gray-700'
+  if (fmt === 'PDF') return 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800'
+  if (fmt === 'CSV') return 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800'
+  if (fmt === 'ZIP') return 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+  return 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-700'
 }
 
 function statusBadge(status: string): 'ok' | 'warning' | 'error' | 'offline' {
@@ -94,8 +94,8 @@ export default function Reports() {
       <h1 className="text-xl font-semibold">Reports & Exporte</h1>
 
       {/* Generate panel */}
-      <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-5">
-        <p className="text-sm font-medium text-gray-300">Report anfordern</p>
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 space-y-5">
+        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Report anfordern</p>
 
         {/* Controls */}
         <div className="flex gap-4 flex-wrap">
@@ -105,7 +105,7 @@ export default function Reports() {
               type="month"
               value={month}
               onChange={e => setMonth(e.target.value)}
-              className="block bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-gray-500"
+              className="block bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:border-gray-500"
             />
           </div>
           <div className="space-y-1">
@@ -113,7 +113,7 @@ export default function Reports() {
             <select
               value={partId}
               onChange={e => setPartId(e.target.value)}
-              className="block bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-gray-500"
+              className="block bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:border-gray-500"
             >
               {participants.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -123,16 +123,16 @@ export default function Reports() {
         </div>
 
         {genError && (
-          <p className="text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">{genError}</p>
+          <p className="text-sm text-red-600 dark:text-red-400 bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">{genError}</p>
         )}
 
         {/* Report type cards */}
         <div className="grid md:grid-cols-2 gap-3">
           {REPORT_TYPES.map(rt => (
-            <div key={rt.type} className="bg-gray-800 rounded-xl p-4 border border-gray-700 flex flex-col gap-3">
+            <div key={rt.type} className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 border border-gray-300 dark:border-gray-700 flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium text-sm text-gray-200">{rt.label}</p>
+                  <p className="font-medium text-sm text-gray-700 dark:text-gray-200">{rt.label}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{rt.desc}</p>
                 </div>
                 <span className={`shrink-0 text-xs px-2 py-0.5 rounded border font-medium ${fmtBadge(rt.fmt)}`}>
@@ -147,13 +147,13 @@ export default function Reports() {
                     onChange={e => setDetail(e.target.checked)}
                     className="w-4 h-4 rounded accent-green-500"
                   />
-                  <span className="text-xs text-gray-400">15-Minuten-Detailnachweis einschließen</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">15-Minuten-Detailnachweis einschließen</span>
                 </label>
               )}
               <button
                 onClick={() => generate(rt.type)}
                 disabled={generating !== null}
-                className="w-full py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm text-gray-200 disabled:opacity-50 transition-colors font-medium"
+                className="w-full py-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-600 text-sm text-gray-700 dark:text-gray-200 disabled:opacity-50 transition-colors font-medium"
               >
                 {generating === rt.type ? 'Wird erstellt…' : 'Erstellen'}
               </button>
@@ -164,13 +164,13 @@ export default function Reports() {
 
       {/* Reports list */}
       <div className="space-y-2">
-        <p className="text-sm font-medium text-gray-400">Erstellte Reports</p>
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Erstellte Reports</p>
         {reports.length === 0 ? (
-          <p className="text-center py-8 text-gray-600 text-sm">Noch keine Reports erstellt.</p>
+          <p className="text-center py-8 text-gray-500 dark:text-gray-600 text-sm">Noch keine Reports erstellt.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-gray-800">
+          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
             <table className="w-full text-sm">
-              <thead className="bg-gray-900 text-gray-500 text-xs uppercase">
+              <thead className="bg-white dark:bg-gray-900 text-gray-500 text-xs uppercase">
                 <tr>
                   {['Typ', 'Format', 'Zeitraum', 'Teilnehmer', 'Status', 'Erstellt', 'Download'].map(h => (
                     <th key={h} className="px-4 py-2 text-left">{h}</th>
@@ -179,17 +179,17 @@ export default function Reports() {
               </thead>
               <tbody>
                 {reports.map((r: any) => (
-                  <tr key={r.id} className="border-t border-gray-800 hover:bg-gray-900/50">
+                  <tr key={r.id} className="border-t border-gray-200 dark:border-gray-800 hover:bg-gray-900/50">
                     <td className="px-4 py-2.5 font-medium text-xs">{r.report_type}</td>
                     <td className="px-4 py-2.5">
                       <span className={`text-xs px-1.5 py-0.5 rounded border ${fmtBadge(r.file_format ?? 'PDF')}`}>
                         {r.file_format ?? '?'}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-400 font-mono">
+                    <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 font-mono">
                       {r.period_from?.slice(0, 7) ?? '—'}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-400">
+                    <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">
                       {r.participant_name ?? '—'}
                     </td>
                     <td className="px-4 py-2.5">
@@ -206,14 +206,14 @@ export default function Reports() {
                         <a
                           href={api.reportDownloadUrl(r.id)}
                           download
-                          className="text-xs px-3 py-1 rounded-lg bg-green-900/30 text-green-400 border border-green-800 hover:bg-green-900/50 transition-colors"
+                          className="text-xs px-3 py-1 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 hover:bg-green-900/50 transition-colors"
                         >
                           Download
                         </a>
                       ) : r.status === 'PENDING' || r.status === 'PROCESSING' ? (
                         <span className="text-xs text-gray-500 animate-pulse">Wird erstellt…</span>
                       ) : (
-                        <span className="text-xs text-red-400">Fehler</span>
+                        <span className="text-xs text-red-600 dark:text-red-400">Fehler</span>
                       )}
                     </td>
                   </tr>

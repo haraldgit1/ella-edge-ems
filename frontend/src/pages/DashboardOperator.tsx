@@ -3,6 +3,7 @@ import {
   ResponsiveContainer, ComposedChart, Line, Bar,
   XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from 'recharts'
+import { useChartTheme } from '../ThemeContext'
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../api/client'
 import { Tile } from '../components/Tile'
@@ -35,6 +36,7 @@ interface PartOption { id: string; name: string; meter_id: string }
 
 export default function DashboardOperator() {
   const [rangeS, setRangeS] = useState(1800)
+  const ct = useChartTheme()
 
   // Participant overlay — meter_id passed directly to dashboard API so timestamps align
   const [parts,   setParts]   = useState<PartOption[]>([])
@@ -54,7 +56,7 @@ export default function DashboardOperator() {
   }, [])
 
   if (error) return (
-    <div className="text-red-400 bg-red-900/20 rounded-xl p-4 border border-red-800">
+    <div className="text-red-600 dark:text-red-400 bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
       API nicht erreichbar: {error}
     </div>
   )
@@ -72,13 +74,13 @@ export default function DashboardOperator() {
     const dischargeW = Math.min(Math.max(0, bp - pv), 5000)
 
     if (soc <= 20 || reason === 'LIMITED_BY_BATTERY_SOC')
-      return { label: 'Entladen gesperrt', color: 'text-red-400' }
+      return { label: 'Entladen gesperrt', color: 'text-red-600 dark:text-red-400' }
     if (soc >= 100)
-      return { label: 'Voll  –  0 W', color: 'text-green-400' }
+      return { label: 'Voll  –  0 W', color: 'text-green-600 dark:text-green-400' }
     if (chargeW > 50)
-      return { label: `↑ Laden  ${fmtW(chargeW)}`, color: 'text-green-400' }
+      return { label: `↑ Laden  ${fmtW(chargeW)}`, color: 'text-green-600 dark:text-green-400' }
     if (dischargeW > 50)
-      return { label: `↓ Entladen  ${fmtW(dischargeW)}`, color: 'text-blue-300' }
+      return { label: `↓ Entladen  ${fmtW(dischargeW)}`, color: 'text-blue-700 dark:text-blue-300' }
     return { label: 'Standby  –  0 W', color: 'text-gray-500' }
   }
 
@@ -118,7 +120,7 @@ export default function DashboardOperator() {
         <div className="flex items-center gap-3">
           {simMode && <StatusBadge status="sim" label="Simulationsmodus" />}
           <StatusBadge status={ps ? 'ok' : 'offline'} label={ps ? 'System OK' : 'Keine Daten'} />
-          <span className="text-xs text-gray-600">
+          <span className="text-xs text-gray-500 dark:text-gray-600">
             {data?.timestamp ? new Date(data.timestamp).toLocaleTimeString('de-AT') : '—'}
           </span>
         </div>
@@ -130,23 +132,23 @@ export default function DashboardOperator() {
           label="B+ und H+ Verbrauch"
           value={ps ? Math.round(ps.bplus_power_w) : null}
           unit="W"
-          color="text-green-400"
+          color="text-green-600 dark:text-green-400"
           sub={today ? `heute: ${today.bplus_kwh} kWh` : undefined}
         />
         <Tile
           label="PV-Leistung"
           value={ps ? Math.round(ps.pv_power_w ?? 0) : null}
           unit="W"
-          color="text-yellow-400"
+          color="text-yellow-600 dark:text-yellow-400"
         />
         <Tile
           label="Batterie SOC"
           value={ps ? Math.round(ps.battery_soc_pct ?? 0) : null}
           unit="%"
           color={
-            (ps?.battery_soc_pct ?? 100) < 20 ? 'text-red-400' :
-            (ps?.battery_soc_pct ?? 100) < 40 ? 'text-yellow-400' :
-            'text-blue-400'
+            (ps?.battery_soc_pct ?? 100) < 20 ? 'text-red-600 dark:text-red-400' :
+            (ps?.battery_soc_pct ?? 100) < 40 ? 'text-yellow-600 dark:text-yellow-400' :
+            'text-blue-600 dark:text-blue-400'
           }
           sub={ps ? batStatus(ps, dec).label : undefined}
           subColor={ps ? batStatus(ps, dec).color : undefined}
@@ -155,46 +157,46 @@ export default function DashboardOperator() {
           label="Lokaler Deckungsgrad"
           value={today ? today.avg_coverage_pct : null}
           unit="%"
-          color="text-green-400"
+          color="text-green-600 dark:text-green-400"
           sub={today ? `lokal: ${today.local_kwh} kWh` : undefined}
         />
         <Tile
           label="Netz-Einspeisung PV"
           value={gridExportW > 0 ? gridExportW : ps ? 0 : null}
           unit="W"
-          color={gridExportW > 0 ? 'text-amber-400' : 'text-gray-500'}
+          color={gridExportW > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500'}
           sub={gridExportW > 0 ? 'PV-Überschuss → Netz' : 'keine Einspeisung'}
         />
         <Tile
           label="B- und H- Verbrauch"
           value={ps ? Math.round(ps.bminus_power_w) : null}
           unit="W"
-          color="text-gray-400"
+          color="text-gray-500 dark:text-gray-400"
         />
         <Tile
           label="Sollwert gesendet"
           value={dec ? Math.round(dec.sent_setpoint_w ?? 0) : null}
           unit="W"
-          color="text-blue-400"
+          color="text-blue-600 dark:text-blue-400"
         />
         <Tile
           label="Gültige Zähler"
           value={ps ? `${ps.valid_meter_count}/${ps.valid_meter_count + ps.invalid_meter_count}` : null}
-          color={ps?.invalid_meter_count > 0 ? 'text-yellow-400' : 'text-green-400'}
+          color={ps?.invalid_meter_count > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}
         />
         <Tile
           label="Aktive Alarme"
           value={data?.active_alarms ?? null}
-          color={data?.active_alarms > 0 ? 'text-red-400' : 'text-green-400'}
+          color={data?.active_alarms > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}
         />
       </div>
 
       {/* Letzte Regelentscheidung */}
       {dec && (
-        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex flex-wrap gap-6 text-sm">
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 flex flex-wrap gap-6 text-sm">
           <div>
             <span className="text-gray-500 text-xs block">Letzte Regelentscheidung</span>
-            <span className="font-mono text-xs text-gray-300">{dec.timestamp_utc ? utcToDate(dec.timestamp_utc).toLocaleString('de-AT') : '—'}</span>
+            <span className="font-mono text-xs text-gray-600 dark:text-gray-300">{dec.timestamp_utc ? utcToDate(dec.timestamp_utc).toLocaleString('de-AT') : '—'}</span>
           </div>
           <div>
             <span className="text-gray-500 text-xs block">Status</span>
@@ -205,7 +207,7 @@ export default function DashboardOperator() {
           </div>
           <div>
             <span className="text-gray-500 text-xs block">Grund</span>
-            <span className="font-mono text-xs text-gray-300">{dec.reason}</span>
+            <span className="font-mono text-xs text-gray-600 dark:text-gray-300">{dec.reason}</span>
           </div>
           <div>
             <span className="text-gray-500 text-xs block">Istwert WR</span>
@@ -215,12 +217,12 @@ export default function DashboardOperator() {
       )}
 
       {/* Power History Chart */}
-      <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 space-y-4">
         {/* Header with range selector */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <p className="text-sm font-medium text-gray-300">Leistungsverlauf</p>
-            <p className="text-[11px] text-gray-600 mt-0.5">
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Leistungsverlauf</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-600 mt-0.5">
               {history.length} Punkte · Ø {bucketS < 60 ? `${bucketS}s` : `${Math.round(bucketS/60)} min`} / Punkt
             </p>
           </div>
@@ -236,7 +238,7 @@ export default function DashboardOperator() {
                     setSelId(e.target.value)
                     setSelName(opt?.name ?? '')
                   }}
-                  className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-green-700"
+                  className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:border-green-400 dark:focus:border-green-700"
                 >
                   <option value="">— keine —</option>
                   {parts.map(p => (
@@ -252,8 +254,8 @@ export default function DashboardOperator() {
                   onClick={() => setRangeS(r.s)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
                     rangeS === r.s
-                      ? 'bg-green-900/40 text-green-400 border-green-700'
-                      : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500 hover:text-gray-300'
+                      ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 border-green-300 dark:border-green-700'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-300'
                   }`}
                 >
                   {r.label}
@@ -264,16 +266,16 @@ export default function DashboardOperator() {
         </div>
 
         {history.length < 2 ? (
-          <p className="text-gray-600 text-sm text-center py-8">
+          <p className="text-gray-500 dark:text-gray-600 text-sm text-center py-8">
             Keine Daten für diesen Zeitraum.
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <ComposedChart data={history} margin={{ top: 4, right: 50, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <CartesianGrid strokeDasharray="3 3" stroke={ct.gridLine} />
               <XAxis
                 dataKey="t"
-                tick={{ fill: '#6b7280', fontSize: 10 }}
+                tick={{ fill: ct.tick, fontSize: 10 }}
                 interval="preserveStartEnd"
                 minTickGap={50}
               />
@@ -281,7 +283,7 @@ export default function DashboardOperator() {
               <YAxis
                 yAxisId="w"
                 orientation="left"
-                tick={{ fill: '#6b7280', fontSize: 10 }}
+                tick={{ fill: ct.tick, fontSize: 10 }}
                 unit=" W"
                 width={58}
                 tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
@@ -291,13 +293,13 @@ export default function DashboardOperator() {
                 yAxisId="soc"
                 orientation="right"
                 domain={[0, 100]}
-                tick={{ fill: '#3b82f6', fontSize: 10 }}
+                tick={{ fill: ct.tickBlue, fontSize: 10 }}
                 unit=" %"
                 width={36}
               />
               <Tooltip
-                contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: '#9ca3af', marginBottom: 4 }}
+                contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: ct.tooltipText, marginBottom: 4 }}
                 formatter={(v: number, name: string) => {
                   if (name === 'SOC')  return [`${v} %`, 'Batterie SOC']
                   if (name === 'Teil') return [`${v} W`, selName]
@@ -305,7 +307,7 @@ export default function DashboardOperator() {
                 }}
               />
               <Legend
-                wrapperStyle={{ color: '#9ca3af', fontSize: 11, paddingTop: 8 }}
+                wrapperStyle={{ color: ct.legendText, fontSize: 11, paddingTop: 8 }}
                 formatter={(value) =>
                   value === 'SOC'  ? 'Batterie SOC (%)' :
                   value === 'Netz' ? 'Netz-Bezug' :

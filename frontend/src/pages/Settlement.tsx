@@ -26,9 +26,9 @@ function nextMonth(m: string) {
 }
 
 function plausStyle(status: string) {
-  if (status === 'OK')      return 'text-green-400'
-  if (status === 'WARNING') return 'text-yellow-400'
-  if (status === 'FAILED')  return 'text-red-400'
+  if (status === 'OK')      return 'text-green-600 dark:text-green-400'
+  if (status === 'WARNING') return 'text-yellow-600 dark:text-yellow-400'
+  if (status === 'FAILED')  return 'text-red-600 dark:text-red-400'
   return 'text-gray-500'
 }
 
@@ -73,7 +73,7 @@ export default function Settlement() {
   }
 
   if (error) return (
-    <div className="text-red-400 bg-red-900/20 rounded-xl p-4 border border-red-800">
+    <div className="text-red-600 dark:text-red-400 bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
       Fehler: {error}
     </div>
   )
@@ -90,15 +90,15 @@ export default function Settlement() {
         <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={() => { setMonth(m => prevMonth(m)); setApproveMsg(null) }}
-            className="px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+            className="px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-white hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
           >←</button>
-          <span className="text-sm font-medium text-gray-200 min-w-36 text-center">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 min-w-36 text-center">
             {monthLabel(month)}
           </span>
           <button
             onClick={() => { setMonth(m => nextMonth(m)); setApproveMsg(null) }}
             disabled={month >= currentMonth()}
-            className="px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-30"
+            className="px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-white hover:border-gray-400 dark:hover:border-gray-500 transition-colors disabled:opacity-30"
           >→</button>
         </div>
       </div>
@@ -106,29 +106,29 @@ export default function Settlement() {
       {/* Summary Tiles */}
       {tot && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Tile label="Intervalle gesettled" value={tot.interval_count} color="text-white"
+          <Tile label="Intervalle gesettled" value={tot.interval_count} color="text-gray-900 dark:text-white"
                 sub={`${tot.approved_count} freigegeben`} />
-          <Tile label="B+ Verbrauch" value={tot.bplus_kwh} unit="kWh" color="text-green-400" />
-          <Tile label="Lokaler Strom" value={tot.local_kwh} unit="kWh" color="text-green-400"
+          <Tile label="B+ Verbrauch" value={tot.bplus_kwh} unit="kWh" color="text-green-600 dark:text-green-400" />
+          <Tile label="Lokaler Strom" value={tot.local_kwh} unit="kWh" color="text-green-600 dark:text-green-400"
                 sub={`${tot.avg_coverage_pct}% Deckungsgrad`} />
-          <Tile label="Netzstrom" value={tot.grid_kwh} unit="kWh" color="text-gray-300" />
+          <Tile label="Netzstrom" value={tot.grid_kwh} unit="kWh" color="text-gray-600 dark:text-gray-300" />
         </div>
       )}
 
       {/* Energy Mix */}
       {tot && tot.interval_count > 0 && (
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-3">
-          <p className="text-sm text-gray-400">Strommix {monthLabel(month)}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 space-y-3">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Strommix {monthLabel(month)}</p>
           <EnergyMixBar localPct={tot.avg_coverage_pct} />
         </div>
       )}
 
       {/* Plausibility + Approve */}
       {plaus && (
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-300">Plausibilitätsprüfung</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Plausibilitätsprüfung</span>
               <StatusBadge
                 status={plausBadge(plaus.overall_status)}
                 label={plaus.overall_status}
@@ -138,7 +138,7 @@ export default function Settlement() {
               <button
                 onClick={handleApprove}
                 disabled={approving}
-                className="px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+                className="px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-gray-900 dark:text-white text-sm font-medium disabled:opacity-50 transition-colors"
               >
                 {approving ? 'Wird freigegeben…' : `${monthLabel(month)} freigeben`}
               </button>
@@ -149,18 +149,18 @@ export default function Settlement() {
           </div>
 
           {approveMsg && (
-            <p className="text-sm text-green-400">{approveMsg}</p>
+            <p className="text-sm text-green-600 dark:text-green-400">{approveMsg}</p>
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
             {[
-              ['Erwartet', plaus.checks.intervals_expected, 'text-gray-400'],
-              ['Vorhanden', plaus.checks.intervals_found, 'text-white'],
-              ['Fehlend', plaus.checks.intervals_missing, plaus.checks.intervals_missing > 0 ? 'text-red-400' : 'text-green-400'],
-              ['OK', plaus.checks.ok, 'text-green-400'],
-              ['Warnungen', plaus.checks.warnings, plaus.checks.warnings > 0 ? 'text-yellow-400' : 'text-gray-500'],
+              ['Erwartet', plaus.checks.intervals_expected, 'text-gray-500 dark:text-gray-400'],
+              ['Vorhanden', plaus.checks.intervals_found, 'text-gray-900 dark:text-white'],
+              ['Fehlend', plaus.checks.intervals_missing, plaus.checks.intervals_missing > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'],
+              ['OK', plaus.checks.ok, 'text-green-600 dark:text-green-400'],
+              ['Warnungen', plaus.checks.warnings, plaus.checks.warnings > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500'],
             ].map(([label, value, color]) => (
-              <div key={label as string} className="bg-gray-800 rounded-lg p-3 text-center">
+              <div key={label as string} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center">
                 <p className="text-xs text-gray-500 mb-1">{label}</p>
                 <p className={`text-xl font-bold ${color}`}>{value}</p>
               </div>
@@ -183,10 +183,10 @@ export default function Settlement() {
       {/* Per-participant table */}
       {summary?.participants?.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-400">Teilnehmer-Übersicht {monthLabel(month)}</p>
-          <div className="overflow-x-auto rounded-xl border border-gray-800">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Teilnehmer-Übersicht {monthLabel(month)}</p>
+          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
             <table className="w-full text-sm">
-              <thead className="bg-gray-900 text-gray-500 text-xs uppercase">
+              <thead className="bg-white dark:bg-gray-900 text-gray-500 text-xs uppercase">
                 <tr>
                   {['Teilnehmer', 'Status', 'Verbrauch', 'Lokal', 'Netz', 'Deckung'].map(h => (
                     <th key={h} className="px-4 py-2 text-left">{h}</th>
@@ -195,25 +195,25 @@ export default function Settlement() {
               </thead>
               <tbody>
                 {summary.participants.map((p: any) => (
-                  <tr key={p.id} className="border-t border-gray-800 hover:bg-gray-900/50">
+                  <tr key={p.id} className="border-t border-gray-200 dark:border-gray-800 hover:bg-gray-900/50">
                     <td className="px-4 py-2.5 font-medium">{p.display_name}</td>
                     <td className="px-4 py-2.5">
                       <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                        p.status === 'BPLUS' ? 'bg-green-900/30 text-green-400' : 'bg-gray-800 text-gray-500'
+                        p.status === 'BPLUS' ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
                       }`}>{p.status === 'BPLUS' ? 'B+' : 'B−'}</span>
                     </td>
                     <td className="px-4 py-2.5 font-mono">{p.consumption_kwh} kWh</td>
-                    <td className="px-4 py-2.5 font-mono text-green-400">{p.local_kwh} kWh</td>
-                    <td className="px-4 py-2.5 font-mono text-gray-400">{p.grid_kwh} kWh</td>
+                    <td className="px-4 py-2.5 font-mono text-green-600 dark:text-green-400">{p.local_kwh} kWh</td>
+                    <td className="px-4 py-2.5 font-mono text-gray-500 dark:text-gray-400">{p.grid_kwh} kWh</td>
                     <td className="px-4 py-2.5">
                       {p.status === 'BPLUS' ? (
                         <div className="flex items-center gap-2">
-                          <div className="w-16 h-2 rounded-full bg-gray-700 overflow-hidden">
+                          <div className="w-16 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                             <div className="h-full bg-green-500" style={{ width: `${p.coverage_pct}%` }} />
                           </div>
-                          <span className="text-xs text-gray-300">{p.coverage_pct}%</span>
+                          <span className="text-xs text-gray-600 dark:text-gray-300">{p.coverage_pct}%</span>
                         </div>
-                      ) : <span className="text-xs text-gray-600">—</span>}
+                      ) : <span className="text-xs text-gray-500 dark:text-gray-600">—</span>}
                     </td>
                   </tr>
                 ))}
@@ -227,7 +227,7 @@ export default function Settlement() {
       {intervals.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-400">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
               15-Min-Intervalle ({intervals.length} gesettled)
             </p>
             <button
@@ -237,9 +237,9 @@ export default function Settlement() {
               {showAll ? 'Weniger anzeigen' : `Alle ${intervals.length} anzeigen`}
             </button>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-gray-800">
+          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
             <table className="w-full text-xs">
-              <thead className="bg-gray-900 text-gray-500 uppercase">
+              <thead className="bg-white dark:bg-gray-900 text-gray-500 uppercase">
                 <tr>
                   {['Start', 'B+ Wh', 'Lokal Wh', 'Faktor', 'Status', 'Plausibilität'].map(h => (
                     <th key={h} className="px-3 py-2 text-left">{h}</th>
@@ -248,13 +248,13 @@ export default function Settlement() {
               </thead>
               <tbody>
                 {displayed.map((r: any) => (
-                  <tr key={r.id} className="border-t border-gray-800 hover:bg-gray-900/50">
+                  <tr key={r.id} className="border-t border-gray-200 dark:border-gray-800 hover:bg-gray-900/50">
                     <td className="px-3 py-2 font-mono">{r.interval_start_utc?.slice(0, 16).replace('T', ' ')}</td>
-                    <td className="px-3 py-2 text-green-400">{r.bplus_consumption_wh?.toFixed(1)}</td>
+                    <td className="px-3 py-2 text-green-600 dark:text-green-400">{r.bplus_consumption_wh?.toFixed(1)}</td>
                     <td className="px-3 py-2">{r.local_energy_available_wh?.toFixed(1)}</td>
                     <td className="px-3 py-2">{(r.local_allocation_factor * 100).toFixed(1)}%</td>
                     <td className="px-3 py-2">
-                      <span className={r.settlement_status === 'APPROVED' ? 'text-green-400' : 'text-gray-400'}>
+                      <span className={r.settlement_status === 'APPROVED' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
                         {r.settlement_status}
                       </span>
                     </td>
@@ -270,7 +270,7 @@ export default function Settlement() {
       )}
 
       {intervals.length === 0 && (
-        <div className="text-center py-12 text-gray-600">
+        <div className="text-center py-12 text-gray-500 dark:text-gray-600">
           Noch keine Intervalle für {monthLabel(month)}.
           Der Settlement-Worker schließt alle 60 Sekunden abgelaufene Viertelstunden.
         </div>

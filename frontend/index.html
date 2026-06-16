@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ella Edge EMS</title>
+    <script>
+      // Set theme class before render to prevent flash of wrong theme
+      if ((localStorage.getItem('ella-theme') ?? 'dark') === 'dark') {
+        document.documentElement.classList.add('dark')
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -8,9 +8,9 @@ function SocBar({ pct }: { pct: number }) {
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs text-gray-500">
-        <span>SOC</span><span className="font-medium text-white">{p.toFixed(1)}%</span>
+        <span>SOC</span><span className="font-medium text-gray-900 dark:text-white">{p.toFixed(1)}%</span>
       </div>
-      <div className="h-3 rounded-full bg-gray-700 overflow-hidden">
+      <div className="h-3 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
         <div className={`h-full ${color} transition-all duration-700`} style={{ width: `${p}%` }} />
       </div>
     </div>
@@ -23,9 +23,9 @@ function PowerBar({ w, maxW, color = 'bg-green-500' }: { w: number; maxW: number
     <div className="space-y-1">
       <div className="flex justify-between text-xs text-gray-500">
         <span>Leistung</span>
-        <span className="font-medium text-white">{w >= 1000 ? `${(w/1000).toFixed(2)} kW` : `${Math.round(w)} W`}</span>
+        <span className="font-medium text-gray-900 dark:text-white">{w >= 1000 ? `${(w/1000).toFixed(2)} kW` : `${Math.round(w)} W`}</span>
       </div>
-      <div className="h-2 rounded-full bg-gray-700 overflow-hidden">
+      <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
         <div className={`h-full ${color} transition-all duration-700`} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -34,10 +34,10 @@ function PowerBar({ w, maxW, color = 'bg-green-500' }: { w: number; maxW: number
 
 function DeviceCard({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-4">
+    <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 space-y-4">
       <div className="flex items-center gap-2">
         <span className="text-lg">{icon}</span>
-        <h2 className="font-semibold text-gray-200">{title}</h2>
+        <h2 className="font-semibold text-gray-700 dark:text-gray-200">{title}</h2>
       </div>
       {children}
     </div>
@@ -46,9 +46,9 @@ function DeviceCard({ title, icon, children }: { title: string; icon: string; ch
 
 function Row({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="flex justify-between items-center text-sm py-1 border-b border-gray-800 last:border-0">
+    <div className="flex justify-between items-center text-sm py-1 border-b border-gray-200 dark:border-gray-800 last:border-0">
       <span className="text-gray-500">{label}</span>
-      <span className={`text-gray-200 ${mono ? 'font-mono text-xs' : 'font-medium'}`}>{value}</span>
+      <span className={`text-gray-700 dark:text-gray-200 ${mono ? 'font-mono text-xs' : 'font-medium'}`}>{value}</span>
     </div>
   )
 }
@@ -57,7 +57,7 @@ export default function Devices() {
   const { data, error } = usePolling(api.dashboardDevices, 5000)
 
   if (error) return (
-    <div className="text-red-400 bg-red-900/20 rounded-xl p-4 border border-red-800">
+    <div className="text-red-600 dark:text-red-400 bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
       Fehler: {error}
     </div>
   )

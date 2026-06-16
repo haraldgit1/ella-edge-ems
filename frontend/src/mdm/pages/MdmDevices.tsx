@@ -65,7 +65,7 @@ function Input({ value, onChange, type = 'text', placeholder = '', disabled = fa
   return (
     <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)}
       placeholder={placeholder} disabled={disabled}
-      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100
+      className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100
                  placeholder-gray-600 focus:outline-none focus:border-purple-600
                  disabled:opacity-50 disabled:cursor-not-allowed" />
   )
@@ -77,7 +77,7 @@ function Select({ value, onChange, options }: {
 }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100
+      className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100
                  focus:outline-none focus:border-purple-600">
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -86,17 +86,17 @@ function Select({ value, onChange, options }: {
 
 function deviceTypeBadge(t: string) {
   const colors: Record<string, string> = {
-    INVERTER:    'bg-yellow-900/40 text-yellow-400',
-    BATTERY:     'bg-blue-900/40 text-blue-400',
-    PV:          'bg-green-900/40 text-green-400',
+    INVERTER:    'bg-yellow-50 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400',
+    BATTERY:     'bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400',
+    PV:          'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400',
     HEAT_PUMP:   'bg-orange-900/40 text-orange-400',
-    SMART_METER: 'bg-purple-900/40 text-purple-400',
+    SMART_METER: 'bg-purple-50 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400',
   }
   const label: Record<string, string> = {
     INVERTER: 'WR', BATTERY: 'BAT', PV: 'PV', HEAT_PUMP: 'WP', SMART_METER: 'SM',
   }
   return (
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${colors[t] ?? 'bg-gray-800 text-gray-400'}`}>
+    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${colors[t] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
       {label[t] ?? t}
     </span>
   )
@@ -187,30 +187,30 @@ export default function MdmDevices() {
 
         {/* Left */}
         <div className="flex flex-col gap-3 lg:w-72 shrink-0">
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-3">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Suche</h2>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Suche</h2>
             <input type="text" placeholder="Name, Modell …" value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm
+              className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm
                          placeholder-gray-600 focus:outline-none focus:border-purple-600" />
             <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200 focus:outline-none">
+              className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:outline-none">
               {DEVICE_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
-          <div className="flex-1 overflow-auto bg-gray-900 rounded-xl border border-gray-800 min-h-0">
+          <div className="flex-1 overflow-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 min-h-0">
             <div className="p-2 space-y-1">
-              {list.length === 0 && <p className="text-xs text-gray-600 p-4 text-center">Keine Treffer</p>}
+              {list.length === 0 && <p className="text-xs text-gray-500 dark:text-gray-600 p-4 text-center">Keine Treffer</p>}
               {list.map(d => (
                 <button key={d.id} onClick={() => selectRow(d)}
                   className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${
                     selected?.id === d.id
-                      ? 'bg-purple-900/30 border border-purple-700'
-                      : 'hover:bg-gray-800 border border-transparent'
+                      ? 'bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700'
+                      : 'hover:bg-gray-200 dark:hover:bg-gray-800 border border-transparent'
                   } ${!d.is_active ? 'opacity-50' : ''}`}>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-gray-200 truncate">{d.name}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{d.name}</span>
                     {deviceTypeBadge(d.device_type)}
                   </div>
                   <div className="text-[10px] text-gray-500 mt-0.5 font-mono">
@@ -223,33 +223,33 @@ export default function MdmDevices() {
         </div>
 
         {/* Right: Detail */}
-        <div className="flex-1 min-w-0 overflow-auto bg-gray-900 rounded-xl border border-gray-800 p-5">
+        <div className="flex-1 min-w-0 overflow-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
           <div className="flex items-center gap-2 mb-5 flex-wrap">
-            <span className="text-sm font-semibold text-gray-300 mr-2">
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 mr-2">
               {isNew ? 'Neuanlage' : selected ? selected.name : 'Kein Datensatz gewählt'}
             </span>
             <div className="flex gap-2 ml-auto">
               <button onClick={handleNew}
-                className="px-3 py-1.5 text-xs rounded-lg bg-purple-900/40 text-purple-300 border border-purple-700 hover:bg-purple-900/60 transition-colors">
+                className="px-3 py-1.5 text-xs rounded-lg bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700 hover:bg-purple-900/60 transition-colors">
                 Neuanlage
               </button>
               <button onClick={handleCopy} disabled={!selected}
-                className="px-3 py-1.5 text-xs rounded-lg bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 disabled:opacity-40 transition-colors">
+                className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors">
                 Kopieren
               </button>
               <button onClick={handleDelete} disabled={!selected || isNew}
-                className="px-3 py-1.5 text-xs rounded-lg bg-red-900/30 text-red-400 border border-red-800 hover:bg-red-900/50 disabled:opacity-40 transition-colors">
+                className="px-3 py-1.5 text-xs rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-900/50 disabled:opacity-40 transition-colors">
                 Löschen
               </button>
               <button onClick={handleSave} disabled={!dirty || saving}
-                className="px-3 py-1.5 text-xs rounded-lg bg-green-900/40 text-green-300 border border-green-700 hover:bg-green-900/60 disabled:opacity-40 transition-colors font-medium">
+                className="px-3 py-1.5 text-xs rounded-lg bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/60 disabled:opacity-40 transition-colors font-medium">
                 {saving ? 'Speichere …' : 'Speichern'}
               </button>
             </div>
           </div>
 
           {!form ? (
-            <p className="text-gray-600 text-sm text-center mt-16">
+            <p className="text-gray-500 dark:text-gray-600 text-sm text-center mt-16">
               Datensatz aus der Liste wählen oder «Neuanlage» klicken
             </p>
           ) : (
@@ -257,7 +257,7 @@ export default function MdmDevices() {
 
               {/* Links: Grunddaten */}
               <div className="space-y-4">
-                <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-widest border-b border-gray-800 pb-2">Gerätestamm</h3>
+                <h3 className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-2">Gerätestamm</h3>
                 <Field label="Name *">
                   <Input value={form.name} onChange={v => upd({ name: v })} placeholder="z. B. Wechselrichter 1" />
                 </Field>
@@ -282,7 +282,7 @@ export default function MdmDevices() {
 
               {/* Rechts: Technische Daten */}
               <div className="space-y-4">
-                <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-widest border-b border-gray-800 pb-2">Technische Daten</h3>
+                <h3 className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-2">Technische Daten</h3>
                 <Field label="Max. Leistung">
                   <div className="flex items-center gap-2">
                     <Input type="number" value={form.max_power_w ?? ''} onChange={v => upd({ max_power_w: v ? parseFloat(v) : null })} placeholder="z. B. 10000" />
@@ -301,7 +301,7 @@ export default function MdmDevices() {
                 <Field label="Notizen">
                   <textarea value={form.notes ?? ''} onChange={e => upd({ notes: e.target.value || null })}
                     rows={3}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100
+                    className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100
                                placeholder-gray-600 focus:outline-none focus:border-purple-600 resize-none" />
                 </Field>
                 {!isNew && (

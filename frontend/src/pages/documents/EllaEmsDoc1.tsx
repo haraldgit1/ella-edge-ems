@@ -16,10 +16,10 @@ function BulletList({ items }: { items: { head: string; body?: string }[] }) {
     <ul className="space-y-2">
       {items.map((it, i) => (
         <li key={i} className="flex gap-3 text-sm">
-          <span className="text-green-500 mt-0.5 shrink-0">✓</span>
+          <span className="text-green-600 dark:text-green-500 mt-0.5 shrink-0">✓</span>
           <span>
-            <strong className="text-gray-100">{it.head}</strong>
-            {it.body && <span className="text-gray-400"> — {it.body}</span>}
+            <strong className="text-gray-800 dark:text-gray-100">{it.head}</strong>
+            {it.body && <span className="text-gray-500 dark:text-gray-400"> — {it.body}</span>}
           </span>
         </li>
       ))}
@@ -29,7 +29,7 @@ function BulletList({ items }: { items: { head: string; body?: string }[] }) {
 
 function UspBadge({ icon, label }: { icon: string; label: string }) {
   return (
-    <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-300">
+    <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
       <span className="text-base">{icon}</span>
       <span>{label}</span>
     </div>
@@ -51,10 +51,10 @@ export default function EllaEmsDoc1() {
           ← Dokumente
         </button>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-600 font-mono">Ella_EMS_Doc1 · Entwurf</span>
+          <span className="text-xs text-gray-500 dark:text-gray-600 font-mono">Ella_EMS_Doc1 · Entwurf</span>
           <button
             onClick={() => window.print()}
-            className="text-xs bg-green-900/40 border border-green-700 text-green-400 px-3 py-1.5 rounded-lg hover:bg-green-900/60 transition-colors"
+            className="text-xs bg-green-100 dark:bg-green-900/40 border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 px-3 py-1.5 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/60 transition-colors"
           >
             Drucken / PDF
           </button>
@@ -62,20 +62,20 @@ export default function EllaEmsDoc1() {
       </div>
 
       {/* Dokument-Body */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 print:p-0 print:bg-white print:border-0 print:text-black space-y-8">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 print:p-0 print:bg-white print:border-0 print:text-black space-y-8">
 
         {/* Header */}
-        <div className="text-center space-y-3 pb-6 border-b border-gray-800 print:border-gray-300">
-          <div className="text-xs font-mono text-green-500 print:text-green-700 tracking-widest uppercase">
+        <div className="text-center space-y-3 pb-6 border-b border-gray-200 dark:border-gray-800 print:border-gray-300">
+          <div className="text-xs font-mono text-green-600 dark:text-green-500 print:text-green-700 tracking-widest uppercase">
             Produkt-Flyer · Leistungsbeschreibung
           </div>
-          <h1 className="text-3xl font-bold text-white print:text-black leading-tight">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white print:text-black leading-tight">
             Ella Edge EMS
           </h1>
-          <p className="text-lg text-green-400 print:text-green-700 font-medium">
+          <p className="text-lg text-green-600 dark:text-green-400 print:text-green-700 font-medium">
             Lokales Energiemanagementsystem für Mehrparteienanlagen
           </p>
-          <p className="text-sm text-gray-400 print:text-gray-600 max-w-2xl mx-auto">
+          <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600 max-w-2xl mx-auto">
             Ella Edge EMS ermöglicht Bewohnern von Mehrparteienwohnanlagen mit gemeinsamer
             PV-Anlage und Batteriespeicher, günstig und nachvollziehbar selbst erzeugten
             Solarstrom zu beziehen — vollautomatisch, fair und cloud-unabhängig.
@@ -100,9 +100,9 @@ export default function EllaEmsDoc1() {
         </div>
 
         {/* A: Bewohner */}
-        <Section id="kunden" title="A  |  Nutzen für die Bewohnerin / den Bewohner" color="text-green-400 border-green-700 print:text-green-700 print:border-green-400">
-          <p className="text-sm text-gray-400 print:text-gray-600">
-            Bewohner, die als <strong className="text-green-400 print:text-green-700">B+</strong> der
+        <Section id="kunden" title="A  |  Nutzen für die Bewohnerin / den Bewohner" color="text-green-600 dark:text-green-400 border-green-300 dark:border-green-700 print:text-green-700 print:border-green-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600">
+            Bewohner, die als <strong className="text-green-600 dark:text-green-400 print:text-green-700">B+</strong> der
             Energiegemeinschaft beitreten, beziehen lokal erzeugten Solar- und Batteriespeicherstrom
             zu einem günstigeren Tarif — direkt aus der eigenen Wohnanlage.
           </p>
@@ -139,8 +139,8 @@ export default function EllaEmsDoc1() {
         </Section>
 
         {/* B: Betreiber */}
-        <Section id="betreiber" title="B  |  Nutzen für den Betreiber der Wohnanlage / Hausverwaltung" color="text-blue-400 border-blue-700 print:text-blue-700 print:border-blue-400">
-          <p className="text-sm text-gray-400 print:text-gray-600">
+        <Section id="betreiber" title="B  |  Nutzen für den Betreiber der Wohnanlage / Hausverwaltung" color="text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 print:text-blue-700 print:border-blue-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600">
             Für Eigentümergemeinschaften, Bauträger und Hausverwaltungen mit bestehender oder
             geplanter PV-Anlage und Batteriespeicher bietet Ella Edge EMS eine vollständige
             Betreiberlösung — vom Echtzeit-Monitoring bis zur gesetzeskonformen Abrechnung.
@@ -182,8 +182,8 @@ export default function EllaEmsDoc1() {
         </Section>
 
         {/* C: Systemlösungsanbieter */}
-        <Section id="anbieter" title="C  |  Nutzen für Komplettanbieter / Systemlösungsanbieter / Projektplaner" color="text-amber-400 border-amber-700 print:text-amber-700 print:border-amber-400">
-          <p className="text-sm text-gray-400 print:text-gray-600">
+        <Section id="anbieter" title="C  |  Nutzen für Komplettanbieter / Systemlösungsanbieter / Projektplaner" color="text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700 print:text-amber-700 print:border-amber-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600">
             Ella Edge EMS ist die ideale Ergänzung für PV- und Speicherprojekte in
             Mehrparteienwohnanlagen. Sie verwandelt eine Hardware-Installation in eine
             vollständige, betreibbare Energielösung — mit Software, Monitoring, Abrechnung
@@ -226,7 +226,7 @@ export default function EllaEmsDoc1() {
         </Section>
 
         {/* Technische Fakten */}
-        <Section id="technik" title="Technische Eckdaten" color="text-gray-400 border-gray-700 print:text-gray-600 print:border-gray-400">
+        <Section id="technik" title="Technische Eckdaten" color="text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-700 print:text-gray-600 print:border-gray-400">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
             {[
               ['Messintervall',         '5 Sekunden (Echtzeit-Regelung)'],
@@ -244,19 +244,19 @@ export default function EllaEmsDoc1() {
             ].map(([k, v]) => (
               <div key={k} className="flex gap-2">
                 <span className="text-gray-500 print:text-gray-500 shrink-0 w-40">{k}</span>
-                <span className="text-gray-300 print:text-gray-700">{v}</span>
+                <span className="text-gray-600 dark:text-gray-300 print:text-gray-700">{v}</span>
               </div>
             ))}
           </div>
         </Section>
 
         {/* Footer */}
-        <div className="border-t border-gray-800 print:border-gray-300 pt-5 text-center space-y-1">
-          <p className="font-bold text-gray-200 print:text-black">Ella Edge EMS</p>
+        <div className="border-t border-gray-200 dark:border-gray-800 print:border-gray-300 pt-5 text-center space-y-1">
+          <p className="font-bold text-gray-700 dark:text-gray-200 print:text-black">Ella Edge EMS</p>
           <p className="text-xs text-gray-500 print:text-gray-500">
             Entwickelt von Sailer Engineering · www.sailersoft.com
           </p>
-          <p className="text-[10px] text-gray-700 print:text-gray-400 mt-2">
+          <p className="text-[10px] text-gray-400 dark:text-gray-700 print:text-gray-400 mt-2">
             Ella_EMS_Doc1 · Entwurf · Alle Angaben ohne Gewähr · Änderungen vorbehalten
           </p>
         </div>

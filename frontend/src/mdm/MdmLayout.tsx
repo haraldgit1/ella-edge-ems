@@ -10,10 +10,10 @@ export default function MdmLayout() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
-      <header className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center gap-6 flex-wrap">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-100 flex flex-col">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-3 flex items-center gap-6 flex-wrap">
         <div className="flex items-center gap-3 shrink-0">
-          <span className="font-bold text-purple-400 text-lg tracking-tight">MDM</span>
+          <span className="font-bold text-purple-600 dark:text-purple-400 text-lg tracking-tight">MDM</span>
           <span className="text-gray-500 text-sm">Stammdatenverwaltung</span>
         </div>
 
@@ -25,8 +25,8 @@ export default function MdmLayout() {
               className={({ isActive }) =>
                 `text-sm px-3 py-1.5 rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-purple-900/30 text-purple-400 font-medium'
-                    : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
+                    ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-medium'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-800'
                 }`
               }
             >
