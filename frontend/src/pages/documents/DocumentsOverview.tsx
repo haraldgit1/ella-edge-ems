@@ -35,6 +35,15 @@ const DOCUMENTS = [
     description: 'Hochwertiger Produkt-Flyer im Stil eines BMW-Prospekts: präzise Typografie (Helvetica Neue), BMW-Blau als Akzentfarbe, Kennzahlen-Block, Drei-Säulen-Layout und dunkler Footer-Band.',
     status:   'Entwurf',
   },
+  {
+    id:       'ella-ems-doc5',
+    name:     'Ella_EMS_Doc5',
+    title:    'Ella Edge EMS — Premium-Flyer mit SolarEdge Integration',
+    type:     'Marketing-Prospekt',
+    audience: 'Geschäftspartner / Vertrieb / Technik',
+    description: 'Erweiterung von Doc4 mit SolarEdge ONE Controller-Integration: Regelungsfluss-Diagramm (Subzähler → Σ → Sollwert → SolarEdge), 7 Kapitel, Seitenumbruch vor Simulation.',
+    status:   'Entwurf',
+  },
 ]
 
 export default function DocumentsOverview() {
