@@ -26,6 +26,15 @@ const DOCUMENTS = [
     description: 'Kombination aus Text und Bild: alle drei Zielgruppen (Bewohner, Betreiber, Systemlösungsanbieter), Nutzenargumente, Screenshots, SmartMeter-Integration und technische Eckdaten.',
     status:   'Entwurf',
   },
+  {
+    id:       'ella-ems-doc4',
+    name:     'Ella_EMS_Doc4',
+    title:    'Ella Edge EMS — Premium-Flyer im BMW-Stil',
+    type:     'Marketing-Prospekt',
+    audience: 'Geschäftspartner / Vertrieb',
+    description: 'Hochwertiger Produkt-Flyer im Stil eines BMW-Prospekts: präzise Typografie (Helvetica Neue), BMW-Blau als Akzentfarbe, Kennzahlen-Block, Drei-Säulen-Layout und dunkler Footer-Band.',
+    status:   'Entwurf',
+  },
 ]
 
 export default function DocumentsOverview() {

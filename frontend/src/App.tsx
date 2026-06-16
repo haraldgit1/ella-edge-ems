@@ -18,6 +18,7 @@ import DocumentsOverview from './pages/documents/DocumentsOverview'
 import EllaEmsDoc1 from './pages/documents/EllaEmsDoc1'
 import EllaEmsDoc2 from './pages/documents/EllaEmsDoc2'
 import EllaEmsDoc3 from './pages/documents/EllaEmsDoc3'
+import EllaEmsDoc4 from './pages/documents/EllaEmsDoc4'
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="documents/ella-ems-doc1" element={<EllaEmsDoc1 />} />
         <Route path="documents/ella-ems-doc2" element={<EllaEmsDoc2 />} />
         <Route path="documents/ella-ems-doc3" element={<EllaEmsDoc3 />} />
+        <Route path="documents/ella-ems-doc4" element={<EllaEmsDoc4 />} />
       </Route>
     </Routes>
   )
