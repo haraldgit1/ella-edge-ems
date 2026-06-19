@@ -2,7 +2,7 @@ import { Outlet, NavLink } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useTheme } from '../ThemeContext'
 
-const FE_VERSION = 'F-V1.5'
+const FE_VERSION = 'F-V1.6'
 
 const nav = [
   { to: '/operator/dashboard',   label: 'Dashboard',  group: 'Betreiber' },
