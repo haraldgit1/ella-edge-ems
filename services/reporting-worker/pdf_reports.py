@@ -1,7 +1,15 @@
 """PDF report generation using fpdf2 with DejaVu Unicode fonts."""
 from fpdf import FPDF
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import os
+
+_TZ = ZoneInfo('Europe/Vienna')
+
+def _to_local(utc_str: str) -> str:
+    """UTC ISO-String → Wien Lokalzeit als 'DD.MM.YYYY HH:MM'."""
+    dt = datetime.fromisoformat(utc_str.replace('Z', '+00:00'))
+    return dt.astimezone(_TZ).strftime('%d.%m.%Y %H:%M')
 
 GREEN  = (22, 101, 52)
 DKGRAY = (31, 41, 55)
@@ -133,11 +141,8 @@ class EllaReportBase(FPDF):
         self.ln()
 
 
-def generate_resident_monthly(db, participant_id: str, month: str, include_detail: bool = True) -> bytes:
-    """PDF: Bewohner-Monatsreport."""
-    from_s = f'{month}-01T00:00:00Z'
-    to_s   = _next_month(month)
-
+def generate_resident_monthly(db, participant_id: str, from_s: str, to_s: str, period_label: str, include_detail: bool = True) -> bytes:
+    """PDF: Bewohner-Report (Monat oder Einzeltag)."""
     participant = db.execute(
         "SELECT * FROM participants WHERE id=?", (participant_id,)
     ).fetchone()
@@ -185,17 +190,17 @@ def generate_resident_monthly(db, participant_id: str, month: str, include_detai
         savings        = ref_cost - total_cost
         saving_per_kwh = (gp - lp - sp) / 100  # EUR/kWh
 
-    pdf = EllaReportBase(f'Bewohner-Monatsreport {_month_label(month)}')
+    pdf = EllaReportBase(f'Bewohner-Report {period_label}')
     pdf.add_page()
 
     pdf.section('Teilnehmer')
     pdf.kv('Name', participant['display_name'], bg=False)
     pdf.kv('Teilnahme', 'B+ Energiegemeinschaft', bg=True)
-    pdf.kv('Zeitraum', f'{_month_label(month)}', bg=False)
+    pdf.kv('Zeitraum', period_label, bg=False)
     pdf.kv('Zähler', participant['meter_id'] or '-', bg=True)
     pdf.ln(3)
 
-    pdf.section('Monatszusammenfassung')
+    pdf.section('Zusammenfassung')
     pdf.kv('Gesamtverbrauch', f'{total_kwh:.3f} kWh', bg=False)
     pdf.kv('Lokaler Gemeinschaftsstrom', f'{local_kwh:.3f} kWh', bg=True)
     pdf.kv('Ergänzung aus öffentlichem Netz', f'{grid_kwh:.3f} kWh', bg=False)
@@ -234,30 +239,28 @@ def generate_resident_monthly(db, participant_id: str, month: str, include_detai
     if include_detail and allocs:
         pdf.section(f'15-Minuten-Detailnachweis ({len(allocs)} Intervalle)')
         cols = [
-            ('Zeitpunkt', 46, 'L'),
-            ('Verbrauch Wh', 38, 'R'),
-            ('Lokal Wh', 32, 'R'),
-            ('Netz Wh', 32, 'R'),
-            ('Deckung %', 22, 'R'),
+            ('Zeitpunkt', 40, 'L'),
+            ('Ø Leistung W', 30, 'R'),
+            ('Verbrauch Wh', 30, 'R'),
+            ('Lokal Wh', 28, 'R'),
+            ('Netz Wh', 26, 'R'),
+            ('Deckung %', 20, 'R'),
         ]
         pdf.table_header(cols)
-        for i, r in enumerate(allocs[:200]):
-            ts = r['interval_start_utc'][:16].replace('T', ' ')
+        for i, r in enumerate(allocs):
+            ts = _to_local(r['interval_start_utc'])
+            avg_w = round(r['consumption_wh'] * 4)
             pdf.table_row([
-                (ts, 46, 'L'),
-                (f'{r["consumption_wh"]:.1f}', 38, 'R'),
-                (f'{r["local_energy_wh"]:.1f}', 32, 'R'),
-                (f'{r["grid_energy_wh"]:.1f}', 32, 'R'),
-                (f'{r["local_coverage_percent"]:.1f}', 22, 'R'),
+                (ts, 40, 'L'),
+                (f'{avg_w}', 30, 'R'),
+                (f'{r["consumption_wh"]:.1f}', 30, 'R'),
+                (f'{r["local_energy_wh"]:.1f}', 28, 'R'),
+                (f'{r["grid_energy_wh"]:.1f}', 26, 'R'),
+                (f'{r["local_coverage_percent"]:.1f}', 20, 'R'),
             ], even=(i % 2 == 0))
             if pdf.get_y() > 265:
                 pdf.add_page()
                 pdf.table_header(cols)
-
-        if len(allocs) > 200:
-            pdf.set_font('DejaVu', '', 8)
-            pdf.set_text_color(*LTGRAY)
-            pdf.cell(0, 5, f'  ... {len(allocs) - 200} weitere Intervalle (vollständiger CSV-Export verfügbar)', new_x='LMARGIN', new_y='NEXT')
 
     elif not include_detail and allocs:
         pdf.set_font('DejaVu', '', 8)
@@ -267,10 +270,8 @@ def generate_resident_monthly(db, participant_id: str, month: str, include_detai
     return bytes(pdf.output())
 
 
-def generate_operator_monthly(db, site_id: str, month: str) -> bytes:
-    """PDF: Betreiber-Monatsreport."""
-    from_s = f'{month}-01T00:00:00Z'
-    to_s   = _next_month(month)
+def generate_operator_monthly(db, site_id: str, from_s: str, to_s: str, period_label: str) -> bytes:
+    """PDF: Betreiber-Report (Monat oder Einzeltag)."""
 
     totals = db.execute("""
         SELECT COUNT(*) AS n,
@@ -305,7 +306,7 @@ def generate_operator_monthly(db, site_id: str, month: str) -> bytes:
         ORDER BY triggered_at DESC LIMIT 20
     """, (site_id, from_s[:10], to_s[:10])).fetchall()
 
-    pdf = EllaReportBase(f'Betreiber-Monatsreport {_month_label(month)}')
+    pdf = EllaReportBase(f'Betreiber-Report {period_label}')
     pdf.add_page()
 
     pdf.section('Energiebilanz')
@@ -349,7 +350,7 @@ def generate_operator_monthly(db, site_id: str, month: str) -> bytes:
     pdf.ln(3)
 
     if alarms:
-        pdf.section(f'Alarme ({len(alarms)} im Monat)')
+        pdf.section(f'Alarme ({len(alarms)} im Zeitraum)')
         cols2 = [('Zeitpunkt', 40, 'L'), ('Klasse', 20, 'C'), ('Code', 40, 'L'), ('Meldung', 80, 'L')]
         pdf.table_header(cols2)
         for i, a in enumerate(alarms):

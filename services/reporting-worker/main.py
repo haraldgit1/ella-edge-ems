@@ -24,30 +24,53 @@ def get_db():
     return db
 
 
+_MONTH_NAMES = ['', 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+                'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+
+
+def _period_label(period_from: str, period_to: str) -> str:
+    """Human-readable label: 'DD.MM.YYYY' for single day, 'Monat YYYY' for full month."""
+    try:
+        from datetime import date as _date
+        d_from = _date.fromisoformat(period_from)
+        d_to   = _date.fromisoformat(period_to)
+        if (d_to - d_from).days == 1:
+            return d_from.strftime('%d.%m.%Y')
+    except Exception:
+        pass
+    y, m = period_from[:7].split('-')
+    return f"{_MONTH_NAMES[int(m)]} {y}"
+
+
 def process_job(db, job) -> None:
-    job_id   = job['id']
-    rtype    = job['report_type']
-    month    = (job['period_from'] or '')[:7]  # YYYY-MM
-    part_id  = job['participant_id']
+    job_id      = job['id']
+    rtype       = job['report_type']
+    period_from = job['period_from'] or ''   # YYYY-MM-DD
+    period_to   = job['period_to']   or ''   # YYYY-MM-DD (exclusive)
+    part_id     = job['participant_id']
+
+    from_s = f'{period_from}T00:00:00Z'
+    to_s   = f'{period_to}T00:00:00Z'
+    label  = _period_label(period_from, period_to)
 
     import json as _json
     params         = _json.loads(job['params'] or '{}')
     include_detail = params.get('include_detail', True)
 
-    print(f"Processing job {job_id}: {rtype} month={month} participant={part_id} detail={include_detail}")
+    print(f"Processing job {job_id}: {rtype} period={period_from}..{period_to} label={label} participant={part_id} detail={include_detail}")
 
     if rtype == 'RESIDENT_MONTHLY':
-        data = generate_resident_monthly(db, part_id, month, include_detail=include_detail)
+        data = generate_resident_monthly(db, part_id, from_s, to_s, label, include_detail=include_detail)
         ext  = 'pdf'
         fmt  = 'PDF'
 
     elif rtype == 'OPERATOR_MONTHLY':
-        data = generate_operator_monthly(db, SITE_ID, month)
+        data = generate_operator_monthly(db, SITE_ID, from_s, to_s, label)
         ext  = 'pdf'
         fmt  = 'PDF'
 
     elif rtype == 'CSV_DETAIL':
-        data = generate_csv_detail(db, SITE_ID, month)
+        data = generate_csv_detail(db, SITE_ID, from_s, to_s)
         ext  = 'csv'
         fmt  = 'CSV'
 

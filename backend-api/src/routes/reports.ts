@@ -45,6 +45,7 @@ export const reportRoutes = new Elysia({ prefix: '/api/reports' })
     const db    = getDb()
     const rtype = String(body?.report_type ?? '')
     const month = String(body?.month ?? new Date().toISOString().slice(0, 7))
+    const date  = body?.date ? String(body.date) : null   // YYYY-MM-DD optional
     const partId = body?.participant_id ?? null
     const includeDetail = body?.include_detail !== false  // default true
 
@@ -55,9 +56,15 @@ export const reportRoutes = new Elysia({ prefix: '/api/reports' })
       return { error: 'participant_id required for RESIDENT_MONTHLY' }
     }
 
-    const id     = makeId()
-    const from   = `${month}-01`
-    const to     = nextMonthStart(month).slice(0, 10)
+    const id   = makeId()
+    let from: string, to: string
+    if (date) {
+      from = date
+      to   = nextDayStart(date)
+    } else {
+      from = `${month}-01`
+      to   = nextMonthStart(month).slice(0, 10)
+    }
     const params = JSON.stringify({ include_detail: includeDetail })
 
     db.query(`
@@ -69,11 +76,12 @@ export const reportRoutes = new Elysia({ prefix: '/api/reports' })
            rtype === 'CSV_DETAIL' ? 'CSV' : rtype === 'DIAGNOSTICS' ? 'ZIP' : 'PDF',
            'PENDING', 'operator', params)
 
-    return { id, status: 'PENDING', report_type: rtype, month }
+    return { id, status: 'PENDING', report_type: rtype, month, date }
   }, {
     body: t.Object({
       report_type:    t.String(),
       month:          t.Optional(t.String()),
+      date:           t.Optional(t.String()),
       participant_id: t.Optional(t.String()),
       include_detail: t.Optional(t.Boolean()),
     })
@@ -92,7 +100,11 @@ export const reportRoutes = new Elysia({ prefix: '/api/reports' })
 
     const data = readFileSync(row.file_path)
     const fmt  = row.file_format ?? 'PDF'
-    const name = `ella-${row.report_type.toLowerCase()}-${row.period_from?.slice(0, 7) ?? 'export'}.${extFor(fmt)}`
+    const periodStr = row.period_to && row.period_from
+      && new Date(row.period_to).getTime() - new Date(row.period_from).getTime() <= 86400000
+      ? row.period_from                   // single day → YYYY-MM-DD
+      : row.period_from?.slice(0, 7)      // month → YYYY-MM
+    const name = `ella-${row.report_type.toLowerCase()}-${periodStr ?? 'export'}.${extFor(fmt)}`
 
     set.headers = {
       'Content-Type':        mimeFor(fmt),
@@ -113,4 +125,10 @@ export const reportRoutes = new Elysia({ prefix: '/api/reports' })
 function nextMonthStart(month: string): string {
   const [y, m] = month.split('-').map(Number)
   return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+}
+
+function nextDayStart(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString().slice(0, 10)
 }

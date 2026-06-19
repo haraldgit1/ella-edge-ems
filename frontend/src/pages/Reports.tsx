@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
+import { fmtLocalDateTime } from '../utils/time'
 
 const REPORT_TYPES = [
   {
@@ -48,17 +49,20 @@ function statusBadge(status: string): 'ok' | 'warning' | 'error' | 'offline' {
   return 'offline'
 }
 
-function currentMonth() {
-  return new Date().toISOString().slice(0, 7)
-}
+function currentMonth() { return new Date().toISOString().slice(0, 7) }
+function currentDate()  { return new Date().toISOString().slice(0, 10) }
+
+type PeriodMode = 'month' | 'day'
 
 export default function Reports() {
-  const [month, setMonth]         = useState(currentMonth())
-  const [participants, setParts]  = useState<{ id: string; name: string }[]>([])
-  const [partId, setPartId]       = useState('')
-  const [includeDetail, setDetail] = useState(true)
-  const [generating, setGen]      = useState<string | null>(null)
-  const [genError, setGenError]   = useState<string | null>(null)
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('day')
+  const [month, setMonth]           = useState(currentMonth())
+  const [date, setDate]             = useState(currentDate())
+  const [participants, setParts]    = useState<{ id: string; name: string }[]>([])
+  const [partId, setPartId]         = useState('')
+  const [includeDetail, setDetail]  = useState(true)
+  const [generating, setGen]        = useState<string | null>(null)
+  const [genError, setGenError]     = useState<string | null>(null)
 
   useEffect(() => {
     api.mdmParticipants('?active=1&status=BPLUS').then((list: any[]) => {
@@ -75,7 +79,9 @@ export default function Reports() {
     setGen(rtype)
     setGenError(null)
     try {
-      const body: any = { report_type: rtype, month }
+      const body: any = periodMode === 'day'
+        ? { report_type: rtype, date }
+        : { report_type: rtype, month }
       if (rtype === 'RESIDENT_MONTHLY') {
         body.participant_id = partId
         body.include_detail = includeDetail
@@ -98,16 +104,50 @@ export default function Reports() {
         <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Report anfordern</p>
 
         {/* Controls */}
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex gap-4 flex-wrap items-end">
+          {/* Period mode toggle */}
           <div className="space-y-1">
-            <label className="text-xs text-gray-500">Monat</label>
-            <input
-              type="month"
-              value={month}
-              onChange={e => setMonth(e.target.value)}
-              className="block bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:border-gray-500"
-            />
+            <label className="text-xs text-gray-500">Zeitraum</label>
+            <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700">
+              {(['day', 'month'] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setPeriodMode(mode)}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                    periodMode === mode
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {mode === 'day' ? 'Tag' : 'Monat'}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Day or Month picker */}
+          {periodMode === 'day' ? (
+            <div className="space-y-1">
+              <label className="text-xs text-gray-500">Datum</label>
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="block bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:border-gray-500"
+              />
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label className="text-xs text-gray-500">Monat</label>
+              <input
+                type="month"
+                value={month}
+                onChange={e => setMonth(e.target.value)}
+                className="block bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:border-gray-500"
+              />
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="text-xs text-gray-500">Teilnehmer (für Bewohnerreport)</label>
             <select
@@ -187,7 +227,11 @@ export default function Reports() {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 font-mono">
-                      {r.period_from?.slice(0, 7) ?? '—'}
+                      {r.period_from
+                        ? (r.period_to && new Date(r.period_to).getTime() - new Date(r.period_from).getTime() <= 86400000
+                            ? r.period_from                 // single day
+                            : r.period_from.slice(0, 7))    // month
+                        : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">
                       {r.participant_name ?? '—'}
@@ -199,7 +243,7 @@ export default function Reports() {
                       />
                     </td>
                     <td className="px-4 py-2.5 text-xs text-gray-500 font-mono">
-                      {r.created_at?.slice(0, 16).replace('T', ' ') ?? '—'}
+                      {r.created_at ? fmtLocalDateTime(r.created_at) : '—'}
                     </td>
                     <td className="px-4 py-2.5">
                       {r.status === 'COMPLETED' ? (

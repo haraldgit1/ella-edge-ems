@@ -4,13 +4,18 @@ import io
 import json
 import zipfile
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+_TZ = ZoneInfo('Europe/Vienna')
+
+def _to_local(utc_str: str) -> str:
+    """UTC ISO-String → Wien Lokalzeit als 'DD.MM.YYYY HH:MM'."""
+    dt = datetime.fromisoformat(utc_str.replace('Z', '+00:00'))
+    return dt.astimezone(_TZ).strftime('%d.%m.%Y %H:%M')
 
 
-def generate_csv_detail(db, site_id: str, month: str) -> bytes:
-    """CSV: 15-Min-Detailnachweis aller B+ Teilnehmer für einen Monat."""
-    from_s = f'{month}-01T00:00:00Z'
-    to_s   = _next_month(month)
-
+def generate_csv_detail(db, site_id: str, from_s: str, to_s: str) -> bytes:
+    """CSV: 15-Min-Detailnachweis aller B+ Teilnehmer für einen Zeitraum."""
     rows = db.execute("""
         SELECT si.interval_start_utc, si.interval_end_utc,
                p.display_name, p.participant_status,
@@ -28,14 +33,17 @@ def generate_csv_detail(db, site_id: str, month: str) -> bytes:
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow([
-        'interval_start_utc', 'interval_end_utc',
+        'interval_start (Wien)', 'interval_end (Wien)',
+        'avg_leistung_w',
         'participant', 'status',
         'consumption_wh', 'local_energy_wh', 'grid_energy_wh',
         'local_coverage_pct', 'site_allocation_factor', 'plausibility'
     ])
     for r in rows:
+        avg_w = round(r['consumption_wh'] * 4)
         writer.writerow([
-            r['interval_start_utc'], r['interval_end_utc'],
+            _to_local(r['interval_start_utc']), _to_local(r['interval_end_utc']),
+            avg_w,
             r['display_name'], r['participant_status'],
             f"{r['consumption_wh']:.4f}",
             f"{r['local_energy_wh']:.4f}",
